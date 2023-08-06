@@ -1,0 +1,14 @@
+{
+  "name": "kalium19",
+  "version": "0.0.1",
+  "description": "Kalium Telegram Bot",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "MBRjun <neko@mbr.moe>",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.63.0"
+  }
+}
