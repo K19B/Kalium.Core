@@ -4,11 +4,17 @@
   "description": "Kalium Telegram Bot",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "ts-node main.ts"
   },
   "author": "MBRjun <neko@mbr.moe>",
   "license": "Apache-2.0",
   "dependencies": {
+    "@types/node-telegram-bot-api": "^0.61.7",
     "node-telegram-bot-api": "^0.63.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
   }
 }
