@@ -1,3 +1,6 @@
+# v0.1.2
+- refactor: add send function
+
 # v0.1.1
 - refactor: use TypeScript
 
