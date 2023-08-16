@@ -1,3 +1,6 @@
+# v0.2.0
+- feat: /status will show version
+
 # v0.1.2
 - refactor: add send function
 

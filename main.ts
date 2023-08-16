@@ -1,8 +1,10 @@
 import nodeBot from 'node-telegram-bot-api';
 import { execFileSync } from 'child_process';
+const ver = process.env.npm_package_version;
 
 let token = process.env.TELEGRAM_TOKEN;
 let bot = new nodeBot(token as string, {polling: true});
+console.log('Kalium ' + ver + ' started.');
 
 // Receive Messages
 bot.onText(/[\s\S]*/, function (msg, resp) {
@@ -23,7 +25,9 @@ function send(id: any, msg: string){
 
 // Bot Commands
 bot.onText(/\/status/, function (msg) {
-    let resp = '*Kalium Bot*\n`' + exec('bash', ['neofetch', '--stdout']) + '`';
+    let resp = '*Kalium Bot*\n' +
+                'Version: ' + ver + '\n' +
+                '`' + exec('bash', ['neofetch', '--stdout']) + '`';
     send(msg.chat.id, resp);
 });
 bot.onText(/\/wol/, function (msg) {
