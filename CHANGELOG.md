@@ -1,3 +1,7 @@
+# v0.3.0
+- feat: log to file
+- feat: kping
+
 # v0.2.0
 - feat: /status will show version
 
