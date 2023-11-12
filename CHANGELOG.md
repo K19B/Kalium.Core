@@ -1,3 +1,6 @@
+# v0.5.1
+- fix: status NaN
+
 # v0.5.0
 - refactor: status
 
