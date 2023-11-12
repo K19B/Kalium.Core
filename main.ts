@@ -76,9 +76,9 @@ bot.onText(/\/kping/, function (msg) {
     send(msg.chat.id, resp);
 }); 
 bot.onText(/\/status/, function (msg) {
-    let resp = '*Kalium Bot*\n' +
-                'Version: ' + ver + '\n' +
-                '`' + exec('bash', ['neofetch', '--stdout']) + '`';
+    let resp = 'Kalium Bot v' + ver + ' Status\n' +
+                '```bash' + exec('bash', ['neofetch', '--stdout']) + '```\n'
+                + + Date();
     send(msg.chat.id, resp);
 }); 
 bot.onText(/\/wol/, function (msg) {

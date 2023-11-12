@@ -1,3 +1,6 @@
+# v0.5.0
+- refactor: status
+
 # v0.4.2
 - fix: userinfo conditions
 
