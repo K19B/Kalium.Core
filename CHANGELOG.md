@@ -1,3 +1,6 @@
+# v0.4.2
+- fix: userinfo conditions
+
 # v0.4.1
 - fix: userinfo
 

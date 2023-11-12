@@ -64,11 +64,11 @@ bot.onText(/\/userinfo/, function (msg) {
     let chatId = msg.chat.id;
     let userId = msg.from?.id;
     if (chatId == userId) {
-        send(msg.chat.id, 'Private Message Only');
-    } else {
         let resp = 'Kalium User Info\n```\nID: ' + userId +
                    '\nLANG: ' + msg.from?.language_code + '\n```' + Date();
         send(msg.chat.id, resp);
+    } else {
+        send(msg.chat.id, 'Private Message Only');
     }
 }); 
 bot.onText(/\/kping/, function (msg) {
