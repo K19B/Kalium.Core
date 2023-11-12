@@ -1,3 +1,6 @@
+# v0.4.0
+- feat: userinfo
+
 # v0.3.0
 - feat: log to file
 - feat: kping

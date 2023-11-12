@@ -60,6 +60,18 @@ function err(from: string) {
 }
 
 // Bot Commands
+bot.onText(/\/userinfo/, function (msg) {
+    let chatId = msg.chat.id;
+    let userId = msg.from?.id;
+    function from() {
+    if (chatId == userId) {
+        send(msg.chat.id, 'Private Message Only');
+    } else {
+        let resp = 'Kalium User Info\n```\nID: ' + userId +
+                   '\nLANG: ' + msg.from?.language_code + '\n```' + Date();
+        send(msg.chat.id, resp);
+    } }
+}); 
 bot.onText(/\/kping/, function (msg) {
     let resp = 'Kalium is alive.\nServer time: ' + Date();
     send(msg.chat.id, resp);
