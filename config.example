@@ -1,0 +1,9 @@
+# Still in development
+
+database:
+  type: pgsql # Optional, pgsql(Postgre SQL) only in 0.6.0, default "pgsql"
+  host: # Optional, default "127.0.0.1"
+  port: # Optional, pgsql default 5432, mysql/maria default 3306, redis default 6379
+  username: # Optional, default "kalium"
+  password: # Optional
+  database: # Optional, database name, default "kalium"

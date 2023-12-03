@@ -1,16 +1,37 @@
 import nodeBot from 'node-telegram-bot-api';
 import { execFileSync } from 'child_process';
 import fs from 'fs';
+import yaml from 'js-yaml';
+
 const ver = process.env.npm_package_version;
 const kernel = execFileSync('uname', ['-sr']).toString();
 
 let TOKEN = process.env.TELEGRAM_TOKEN;
 let LOGNAME = 'main.log';
 
+/* Experimental Load Config
+try {
+    let fileContents = fs.readFileSync('config.yaml', 'utf8');
+    let data = yaml.loadAll(fileContents);
+
+    console.log(data);
+} catch (e) {
+    console.log(e);
+    throw('Create config.yaml first. See "config.example"!');
+}
+*/
+
 let bot = new nodeBot(TOKEN as string, {polling: true});
 console.log('Kalium ' + ver + ' started.');
 
 fs.writeFile(LOGNAME, 'Kalium ' + ver + ' started on ' + Date() + '\n', { flag: 'a+' }, err => {});
+
+/* Experimental File-DB
+let FILEDB = 'file-db.db'; // Text-Based File Database (NOT SQLite) - v0.6.0+
+if (!fs.existsSync(FILEDB)) { // Create File-DB If Not Exist
+    fs.writeFile(FILEDB, 'Text-based file database created on ' + Date() + '\nThis is NOT a SQLite database.\n============\nFILEDB_VERSION=0.6.0\n', { flag: 'a+' }, err => {});
+};
+*/
 
 // Receive Messages
 bot.onText(/[\s\S]*/, function (msg, resp) {
@@ -47,8 +68,13 @@ function exec(path: string, args: string[]) {
 }
 function send(id: any, msg: string) {
     console.log('\x1b[43m SEND \x1b[42m ' + id + ' \x1b[0m ' + msg );
-    log('SEND', 'INFO  ', id + ' | ' + msg)
+    log('SEND', 'INFO  ', id + ' | ' + msg);
     bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
+}
+function fwrd(id: any, src: any, msgid: number) {
+    console.log('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
+    log('FWRD', 'INFO  ', id + ' | ' + src + "/" + msgid);
+    bot.forwardMessage(id, src, msgid, );
 }
 function err(from: string) {
     log(from, 'ERROR ', from + ' called error function.')
@@ -109,3 +135,6 @@ bot.onText(/\/wol/, function (msg) {
     } }
     send(msg.chat.id, data());
 }); */
+bot.onText(/来玉林北流/, function (msg) { // Misaka Logger
+    fwrd(msg.chat.id, "@MBRFans", 374741);
+});

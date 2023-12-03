@@ -1,3 +1,8 @@
+# v0.6.0
+- feat: add fwrd function
+- feat: MisakaBlogQuote
+- chore: deps(add) js-yaml
+
 # v0.5.1
 - fix: status NaN
 
