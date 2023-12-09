@@ -86,7 +86,7 @@ function err(from: string) {
 }
 
 // Bot Commands
-bot.onText(/\/userinfo/, function (msg) {
+bot.onText(/^\/userinfo/, function (msg) {
     let chatId = msg.chat.id;
     let userId = msg.from?.id;
     if (chatId == userId) {
@@ -97,17 +97,17 @@ bot.onText(/\/userinfo/, function (msg) {
         send(msg.chat.id, 'Private Message Only');
     }
 }); 
-bot.onText(/\/kping/, function (msg) {
+bot.onText(/^\/kping/, function (msg) {
     let resp = 'Kalium is alive.\nServer time: ' + Date();
     send(msg.chat.id, resp);
 }); 
-bot.onText(/\/status/, function (msg) {
+bot.onText(/^\/status/, function (msg) {
     let resp = 'Kalium Bot v' + ver + ' Status\n' +
                 '```bash\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
                 + Date();
     send(msg.chat.id, resp);
 }); 
-bot.onText(/\/wol/, function (msg) {
+bot.onText(/^\/wol/, function (msg) {
     if (msg.from?.id == 1613650110) {
         let resp = '`' + exec('wakeonlan', ['08:bf:b8:43:30:15']) + '`';
         send(msg.chat.id, resp);

@@ -1,3 +1,6 @@
+# v0.6.1
+- fix: only match "/" as beginning
+
 # v0.6.0
 - feat: add fwrd function
 - feat: MisakaBlogQuote
