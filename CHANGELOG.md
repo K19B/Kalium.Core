@@ -1,3 +1,6 @@
+# v0.7.0
+- feat: url check
+
 # v0.6.1
 - fix: only match "/" as beginning
 

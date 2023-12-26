@@ -2,6 +2,7 @@ import nodeBot from 'node-telegram-bot-api';
 import { execFileSync } from 'child_process';
 import fs from 'fs';
 import yaml from 'js-yaml';
+import got from 'got';
 
 const ver = process.env.npm_package_version;
 const kernel = execFileSync('uname', ['-sr']).toString();
@@ -62,8 +63,8 @@ function exec(path: string, args: string[]) {
     try {
         let stdout = execFileSync(path, args).toString();
         return stdout;
-    } catch {
-        return err('EXEC');
+    } catch (e) {
+        return err('EXEC', e as string);
     }
 }
 function send(id: any, msg: string) {
@@ -71,18 +72,22 @@ function send(id: any, msg: string) {
     log('SEND', 'INFO  ', id + ' | ' + msg);
     bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
 }
+function reply(id: any, msg: string, mid: number) {
+    console.log('\x1b[43m RPLY \x1b[42m ' + id + ' \x1b[0m ' + msg );
+    log('RPLY', 'INFO  ', id + ' | ' + msg);
+    bot.sendMessage(id, msg, { parse_mode: 'Markdown', reply_to_message_id: mid });
+}
 function fwrd(id: any, src: any, msgid: number) {
     console.log('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
     log('FWRD', 'INFO  ', id + ' | ' + src + "/" + msgid);
     bot.forwardMessage(id, src, msgid, );
 }
-function err(from: string) {
+function err(from: string, stderr: string) {
     log(from, 'ERROR ', from + ' called error function.')
-    return '[ command error! ]' + '\n' +
-           '[?] command not found' + '\n' +
-           '[?] no stdout available' + '\n' +
+    return '[ stderr detected ]' + '\n' +
+           stderr + '\n' +
            '---' + '\n' +
-           'Kalium ' + ver + ', Kernel ' + kernel
+           'Kalium ' + ver + ', Kernel ' + kernel;
 }
 
 // Bot Commands
@@ -103,7 +108,7 @@ bot.onText(/^\/kping/, function (msg) {
 }); 
 bot.onText(/^\/status/, function (msg) {
     let resp = 'Kalium Bot v' + ver + ' Status\n' +
-                '```bash\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
+                '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
                 + Date();
     send(msg.chat.id, resp);
 }); 
@@ -137,4 +142,28 @@ bot.onText(/^\/wol/, function (msg) {
 }); */
 bot.onText(/来玉林北流/, function (msg) { // Misaka Logger
     fwrd(msg.chat.id, "@MBRFans", 374741);
+});
+bot.onText(/^\/check/gusi, function (msg) {
+    var checkFqdn = 'FQDN not detected\n';
+    var checkUrl = 'URL not detected';
+    // Part I: Check FQDN
+    let fqdn = msg.text!.match(/(((?!-))(xn--|_)?[a-z0-9-]{0,61}[a-z0-9]{1,1}\.)+(xn--)?([a-z0-9][a-z0-9\-]{0,60}|[a-z0-9-]{1,30}\.[a-z]{2,})/);
+    if (fqdn == null) {
+        var checkFqdn = 'FQDN not detected\n';
+    } else {
+        let fqdnLookup = exec('nslookup', [fqdn[0], 'mbr.moe']);
+        var checkFqdn = 'FQDN Detected\n```nslookup\n' + fqdnLookup + '\n```\n';
+    }
+    // Part II: Check URL
+    let url = msg.text!.match(/(?<protocol>https?):\/\/(?<domain>(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((?=.{1,255}$)[0-9A-Za-z](?:(?:[0-9A-Za-z]|\b-){0,61}[0-9A-Za-z])?(?:\.[0-9A-Za-z](?:(?:[0-9A-Za-z]|\b-){0,61}[0-9A-Za-z])?)*\.?)|(\[(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))\])))(:(?<port>([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])))?(?<path>\/[a-zA-Z0-9\-\._~:\/\?#\[\]@!\$&'\(\)\*\+,;=]*)?/gusi);
+    if (url == null) {
+        var checkUrl = 'URL not detected';
+        //send(msg.chat.id, 'Invalid');
+    } else {
+        let curlHeader = exec('curl', ['-IsSL', url[0]]);
+        var checkUrl = 'URL Detected\n```curl\n' + curlHeader + '\n```\n';
+        //send(msg.chat.id, resp);
+    }
+    // Finish Check
+    reply(msg.chat.id, checkFqdn + checkUrl, msg.message_id);
 });
