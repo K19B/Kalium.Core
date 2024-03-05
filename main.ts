@@ -193,7 +193,7 @@ bot.onText(/白丝排行榜/, function (msg) {
         let result = "Token / Id 未设置\n/settoken [_t: token]\n/setid [userId: Id]"
         reply(msg.chat.id, result, msg.message_id);
     } else {
-        let result = secureExec('bash', ["dxt1-mod.sh", maimaiToken, maimaiId]) + '`';
+        let result = '```\n' + secureExec('bash', ["dxt1-mod.sh", maimaiToken, maimaiId]) + '```';
         reply(msg.chat.id, result, msg.message_id);
     }
 });

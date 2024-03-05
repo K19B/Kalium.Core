@@ -1,3 +1,6 @@
+# v0.8.3
+- fix: mairank args
+
 # v0.8.2
 - fix: ignore maimaidx.jp cert check
 
