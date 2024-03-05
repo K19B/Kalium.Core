@@ -3,6 +3,7 @@ import { execFileSync } from 'child_process';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import got from 'got';
+//import mai from './modules/mai';
 
 const ver = process.env.npm_package_version;
 const kernel = execFileSync('uname', ['-sr']).toString();
@@ -65,6 +66,16 @@ function exec(path: string, args: string[]) {
         return stdout;
     } catch (e) {
         return err('EXEC', e as string);
+    }
+}
+function secureExec(path: string, args: string[]) {
+    console.log('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
+    log('EXEC', 'INFO  ', path + ' ARGS: ' + args )
+    try {
+        let stdout = execFileSync(path, args).toString();
+        return stdout;
+    } catch (e) {
+        return err('EXEC', 'Is the token valid?');
     }
 }
 function send(id: any, msg: string) {
@@ -166,4 +177,23 @@ bot.onText(/^\/check/gusi, function (msg) {
     }
     // Finish Check
     reply(msg.chat.id, checkFqdn + checkUrl, msg.message_id);
+});
+let maimaiToken
+let maimaiId
+bot.onText(/^\/settoken/, function (msg) {
+    maimaiToken = msg.text
+    reply(msg.chat.id, "OK", msg.message_id);
+});
+bot.onText(/^\/setid/, function (msg) {
+    maimaiId = msg.text
+    reply(msg.chat.id, "OK", msg.message_id);
+});
+bot.onText(/白丝排行榜/, function (msg) {
+    if(!maimaiId || !maimaiToken) {
+        let result = "Token / Id 未设置\n/settoken [_t: token]\n/setid [userId: Id]"
+        reply(msg.chat.id, result, msg.message_id);
+    } else {
+        let result = secureExec('bash', ["dxt1-mod.sh", maimaiToken, maimaiId]) + '`';
+        reply(msg.chat.id, result, msg.message_id);
+    }
 });

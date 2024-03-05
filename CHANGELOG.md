@@ -1,3 +1,6 @@
+# v0.8.0
+- feat: mairank test
+
 # v0.7.0
 - feat: url check
 
