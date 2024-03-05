@@ -178,8 +178,8 @@ bot.onText(/^\/check/gusi, function (msg) {
     // Finish Check
     reply(msg.chat.id, checkFqdn + checkUrl, msg.message_id);
 });
-let maimaiToken
-let maimaiId
+let maimaiToken: undefined | string
+let maimaiId: undefined | string
 bot.onText(/^\/settoken/, function (msg) {
     maimaiToken = msg.text
     reply(msg.chat.id, "OK", msg.message_id);

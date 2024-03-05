@@ -1,3 +1,6 @@
+# v0.8.1
+- fix: maimaiId/maimaiToken type
+
 # v0.8.0
 - feat: mairank test
 
