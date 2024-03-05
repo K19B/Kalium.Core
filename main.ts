@@ -181,11 +181,11 @@ bot.onText(/^\/check/gusi, function (msg) {
 let maimaiToken: undefined | string
 let maimaiId: undefined | string
 bot.onText(/^\/settoken/, function (msg) {
-    maimaiToken = msg.text
+    maimaiToken = msg.text?.split(' ')[1]
     reply(msg.chat.id, "OK", msg.message_id);
 });
 bot.onText(/^\/setid/, function (msg) {
-    maimaiId = msg.text
+    maimaiId = msg.text?.split(' ')[1]
     reply(msg.chat.id, "OK", msg.message_id);
 });
 bot.onText(/白丝排行榜/, function (msg) {

@@ -1,3 +1,6 @@
+# v0.8.2
+- fix: ignore maimaidx.jp cert check
+
 # v0.8.1
 - fix: maimaiId/maimaiToken type
 
