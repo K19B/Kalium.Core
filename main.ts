@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import got from 'got';
-//import mai from './modules/mai';
+// import { maiRankJp } from './plugin/mai';
 
 const ver = process.env.npm_package_version;
 const kernel = execFileSync('uname', ['-sr']).toString();
