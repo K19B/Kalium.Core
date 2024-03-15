@@ -11,6 +11,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@types/node-telegram-bot-api": "^0.61.7",
+    "axios": "^1.6.7",
     "node-telegram-bot-api": "^0.63.0"
   },
   "devDependencies": {
