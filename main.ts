@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import got from 'got';
-// import { maiRankJp } from './plugin/mai';
+import { maiRankJp } from './plugin/mai';
 
 const ver = process.env.npm_package_version;
 const kernel = execFileSync('uname', ['-sr']).toString();
@@ -178,22 +178,23 @@ bot.onText(/^\/check/gusi, function (msg) {
     // Finish Check
     reply(msg.chat.id, checkFqdn + checkUrl, msg.message_id);
 });
-let maimaiToken: undefined | string
-let maimaiId: undefined | string
-bot.onText(/^\/settoken/, function (msg) {
-    maimaiToken = msg.text?.split(' ')[1]
-    reply(msg.chat.id, "OK", msg.message_id);
-});
+let maisegaId: undefined | string;
+let maiPasswd: undefined | string;
+let 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
 bot.onText(/^\/setid/, function (msg) {
-    maimaiId = msg.text?.split(' ')[1]
+    maisegaId = msg.text?.split(' ')[1]
     reply(msg.chat.id, "OK", msg.message_id);
 });
-bot.onText(/白丝排行榜/, function (msg) {
-    if(!maimaiId || !maimaiToken) {
-        let result = "Token / Id 未设置\n/settoken [_t: token]\n/setid [userId: Id]"
+bot.onText(/^\/setp/, function (msg) {
+    maiPasswd = msg.text?.split(' ')[1]
+    reply(msg.chat.id, "OK", msg.message_id);
+});
+bot.onText(/白丝排行榜/, async function (msg) {
+    if(!maisegaId || !maiPasswd) {
+        let result = "你还没有设置 DX Net 登录凭据哇！\n使用 /setid 和 /setp 登录！"
         reply(msg.chat.id, result, msg.message_id);
     } else {
-        let result = '```\n' + secureExec('bash', ["dxt1-mod.sh", maimaiToken, maimaiId]) + '```';
-        reply(msg.chat.id, result, msg.message_id);
+        let result = maiRankJp(白丝Id, maisegaId, maiPasswd);
+        reply(msg.chat.id, '```\n' + await result + '```', msg.message_id);
     }
 });
