@@ -1,0 +1,3 @@
+[submodule "plugin/kalium-vanilla-mai"]
+	path = plugin/kalium-vanilla-mai
+	url = git@github.com:K19B/kalium-vanilla-mai.git

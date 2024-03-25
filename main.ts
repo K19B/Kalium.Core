@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import got from 'got';
-import { maiRankJp } from './plugin/mai';
+import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 
 const ver = process.env.npm_package_version;
 const kernel = execFileSync('uname', ['-sr']).toString();
@@ -83,10 +83,11 @@ function send(id: any, msg: string) {
     log('SEND', 'INFO  ', id + ' | ' + msg);
     bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
 }
-function reply(id: any, msg: string, mid: number) {
+async function reply(id: any, msg: string, mid: number) {
     console.log('\x1b[43m RPLY \x1b[42m ' + id + ' \x1b[0m ' + msg );
     log('RPLY', 'INFO  ', id + ' | ' + msg);
-    bot.sendMessage(id, msg, { parse_mode: 'Markdown', reply_to_message_id: mid });
+    let { message_id } = await bot.sendMessage(id, msg, { parse_mode: 'Markdown', reply_to_message_id: mid });
+    return message_id;
 }
 function fwrd(id: any, src: any, msgid: number) {
     console.log('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
