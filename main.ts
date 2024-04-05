@@ -1,39 +1,57 @@
 import nodeBot from 'node-telegram-bot-api';
 import { execFileSync } from 'child_process';
 import fs from 'fs';
-import yaml from 'js-yaml';
+import yaml from 'yaml';
 import got from 'got';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 
 const ver = process.env.npm_package_version;
+const confVer = 1;
 const kernel = execFileSync('uname', ['-sr']).toString();
 
-let TOKEN = process.env.TELEGRAM_TOKEN;
+let config: any;
+let TOKEN: string | undefined;
+//let TOKEN = process.env.TELEGRAM_TOKEN;
 let LOGNAME = 'main.log';
 
-/* Experimental Load Config
-try {
-    let fileContents = fs.readFileSync('config.yaml', 'utf8');
-    let data = yaml.loadAll(fileContents);
+console.log('Kalium ' + ver + '\n');
 
-    console.log(data);
+try {
+    config = yaml.parse(fs.readFileSync('config.yaml', 'utf8'));
+    console.log('Config exist, checking config...');
 } catch (e) {
-    console.log(e);
-    throw('Create config.yaml first. See "config.example"!');
+    console.log('Could not read config, trying creating...');
 }
-*/
+
+if (config.core.version) {
+if (config.core.version <= confVer) {
+if (config.core.version == confVer) {
+    console.log('Loading config...');
+    TOKEN = config.env.bottoken || process.env.TELEGRAM_TOKEN;
+    LOGNAME = config.env.logfile || 'main.log';
+} else {
+    // There is nothing now.
+    console.log('Config upgraded, please re-run bot.');
+    process.exit();
+}
+} else {
+    console.log('WARNING: Partial downgrade detected(config version mismatch), bot may not work properly.');
+}
+} else {
+    throw new Error('EKCNFIV: Config is not valid.');
+}
+
+console.log('Running pre-checks...');
+
+if (!TOKEN) {
+    throw new Error('EKPREF: Pre-checking failed.');
+}
+console.log('All checks passed.');
 
 let bot = new nodeBot(TOKEN as string, {polling: true});
-console.log('Kalium ' + ver + ' started.');
+console.log('Bot core started.\n');
 
 fs.writeFile(LOGNAME, 'Kalium ' + ver + ' started on ' + Date() + '\n', { flag: 'a+' }, err => {});
-
-/* Experimental File-DB
-let FILEDB = 'file-db.db'; // Text-Based File Database (NOT SQLite) - v0.6.0+
-if (!fs.existsSync(FILEDB)) { // Create File-DB If Not Exist
-    fs.writeFile(FILEDB, 'Text-based file database created on ' + Date() + '\nThis is NOT a SQLite database.\n============\nFILEDB_VERSION=0.6.0\n', { flag: 'a+' }, err => {});
-};
-*/
 
 // Receive Messages
 bot.onText(/[\s\S]*/, function (msg, resp) {

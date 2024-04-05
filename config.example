@@ -1,5 +1,9 @@
 # Still in development
-
+core:
+  version: 1
+env:
+  bottoken:
+  logfile:
 database:
   type: pgsql # Optional, pgsql(Postgre SQL) only in 0.6.0, default "pgsql"
   host: # Optional, default "127.0.0.1"
