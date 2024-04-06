@@ -2,7 +2,6 @@ import nodeBot from 'node-telegram-bot-api';
 import { execFileSync } from 'child_process';
 import fs from 'fs';
 import yaml from 'yaml';
-import got from 'got';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 
 const ver = process.env.npm_package_version;

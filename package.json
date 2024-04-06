@@ -5,7 +5,8 @@
   "main": "main.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "ts-node main.ts"
+    "start": "ts-node loader.ts",
+    "core": "ts-node main.ts"
   },
   "author": "MBRjun <neko@mbr.moe>",
   "license": "Apache-2.0",
