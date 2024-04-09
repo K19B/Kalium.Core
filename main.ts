@@ -3,6 +3,15 @@ import { execFileSync } from 'child_process';
 import fs from 'fs';
 import yaml from 'yaml';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
+import * as color from './lib/color';
+
+process.stdin.on('data', (data: Buffer) => {
+    let key = data.toString().trim();
+    if (key === 'KINTERNALLOADERQUIT') {
+        console.log(color.core + 'Core exiting... (Rcvd \'KINTERNALLOADERQUIT\' command)');
+        process.exit();
+    }
+});
 
 const ver = process.env.npm_package_version;
 const confVer = 1;
@@ -13,24 +22,25 @@ let TOKEN: string | undefined;
 //let TOKEN = process.env.TELEGRAM_TOKEN;
 let LOGNAME = 'main.log';
 
-console.log('Kalium ' + ver + '\n');
+console.log(color.core + 'Kalium ' + ver + '\n'
+            + color.core);
 
 try {
     config = yaml.parse(fs.readFileSync('config.yaml', 'utf8'));
-    console.log('Config exist, checking config...');
+    console.log(color.core + 'Config exist, checking config...');
 } catch (e) {
-    console.log('Could not read config, trying creating...');
+    console.log(color.core + 'Could not read config, trying creating...');
 }
 
 if (config.core.version) {
 if (config.core.version <= confVer) {
 if (config.core.version == confVer) {
-    console.log('Loading config...');
+    console.log(color.core + 'Loading config...');
     TOKEN = config.env.bottoken || process.env.TELEGRAM_TOKEN;
     LOGNAME = config.env.logfile || 'main.log';
 } else {
     // There is nothing now.
-    console.log('Config upgraded, please re-run bot.');
+    console.log(color.core + 'Config upgraded, please re-run bot.');
     process.exit();
 }
 } else {
@@ -40,15 +50,15 @@ if (config.core.version == confVer) {
     throw new Error('EKCNFIV: Config is not valid.');
 }
 
-console.log('Running pre-checks...');
+console.log(color.core + 'Running pre-checks...');
 
 if (!TOKEN) {
     throw new Error('EKPREF: Pre-checking failed.');
 }
-console.log('All checks passed.');
+console.log(color.core + 'All checks passed.');
 
 let bot = new nodeBot(TOKEN as string, {polling: true});
-console.log('Bot core started.\n');
+console.log(color.core + 'Bot core started.\n');
 
 fs.writeFile(LOGNAME, 'Kalium ' + ver + ' started on ' + Date() + '\n', { flag: 'a+' }, err => {});
 
@@ -71,7 +81,7 @@ function serverTime() {
     let svt = new Date().toLocaleString("en-CA", {timeZone: "UTC", hour12: false});
     return svt;
 }
-function log(type: string, lvl: string, data: string) {
+function log(type: string, lvl: string, data: string) { // Deprecated, will remove later.
     let logdata = serverTime() + ' ' + type + ' ' + lvl + ' ' + data + '\n';
     fs.writeFile(LOGNAME, logdata, { flag: 'a+' }, err => {});
 }
