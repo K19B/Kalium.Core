@@ -4,6 +4,7 @@ import fs from 'fs';
 import yaml from 'yaml';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
+import * as arc from './plugin/kalium-vanilla-arc/main';
 
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
@@ -232,5 +233,18 @@ bot.onText(/^\/kupdate/, function (msg) {
         reply(msg.chat.id, resp, msg.message_id)
     } else {
         reply(msg.chat.id, 'Premission denied.', msg.message_id);
+    }
+});
+bot.onText(/^\/karc calc/, function (msg) {
+    let input = msg.text?.split(' ');
+    let err = '```Usage\n/karc calc <lvl> <score>\n\nExamples:\n/karc calc 11 950\n/karc calc 9.7 9921930```';
+    if(!input || !input[3]) {
+        reply(msg.chat.id, err, msg.message_id);
+    } else {
+        try {
+            reply(msg.chat.id, '```Result\n' + arc.arcRtnCalc(parseInt(input[2]), parseInt(input[3])) + '```', msg.message_id)
+        } catch {
+            reply(msg.chat.id, err, msg.message_id);
+        }
     }
 });

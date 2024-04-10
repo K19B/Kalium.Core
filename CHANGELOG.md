@@ -1,3 +1,6 @@
+# v0.11.0
+- feat: arcRntCalc
+
 # v0.10.0
 - feat: updater
 

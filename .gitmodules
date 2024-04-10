@@ -1,3 +1,6 @@
 [submodule "plugin/kalium-vanilla-mai"]
 	path = plugin/kalium-vanilla-mai
 	url = git@github.com:K19B/kalium-vanilla-mai.git
+[submodule "plugin/kalium-vanilla-arc"]
+	path = plugin/kalium-vanilla-arc
+	url = git@github.com:K19B/kalium-vanilla-arc.git
