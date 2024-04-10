@@ -229,8 +229,8 @@ bot.onText(/白丝排行榜/, async function (msg) {
 bot.onText(/^\/kupdate/, function (msg) {
     if (msg.from?.id == 1613650110) {
         let resp = '```Result\n' + exec('git', ['pull']) + '```';
-        send(msg.chat.id, resp);
+        reply(msg.chat.id, resp, msg.message_id)
     } else {
-        send(msg.chat.id, 'Premission denied.');
+        reply(msg.chat.id, 'Premission denied.', msg.message_id);
     }
 });

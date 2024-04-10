@@ -1,3 +1,6 @@
+# v0.10.0
+- feat: updater
+
 # v0.9.2
 - chore: divide mai module into kalium-vanilla-mai
 
