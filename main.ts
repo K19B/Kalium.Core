@@ -242,7 +242,7 @@ bot.onText(/^\/karc calc/, function (msg) {
         reply(msg.chat.id, err, msg.message_id);
     } else {
         try {
-            reply(msg.chat.id, '```Result\n' + arc.arcRtnCalc(parseInt(input[2]), parseInt(input[3])) + '```', msg.message_id)
+            reply(msg.chat.id, '```Result\n' + arc.arcRtnCalc(parseFloat(input[2]), parseInt(input[3])) + '```', msg.message_id)
         } catch {
             reply(msg.chat.id, err, msg.message_id);
         }

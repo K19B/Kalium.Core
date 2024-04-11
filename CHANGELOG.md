@@ -1,3 +1,6 @@
+# v0.11.1
+- fix: arcRtnCalc
+
 # v0.11.0
 - feat: arcRntCalc
 
