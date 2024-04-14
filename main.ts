@@ -4,7 +4,7 @@ import fs from 'fs';
 import yaml from 'yaml';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import * as arc from './plugin/kalium-vanilla-arc/main';
+import * as arc from 'kalium-vanilla-arc';
 
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
