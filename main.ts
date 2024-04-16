@@ -1,71 +1,72 @@
-import nodeBot from 'node-telegram-bot-api';
-import { execFileSync } from 'child_process';
-import fs from 'fs';
-import yaml from 'yaml';
-import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
 import * as arc from './plugin/kalium-vanilla-arc/main';
 import * as os from 'os';
+import nodeBot from 'node-telegram-bot-api';
+import fs from 'fs';
+import yaml from 'yaml';
+import { execFileSync } from 'child_process';
+import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
+import { BotConfig } from './BotConfig';
+enum DebugType
+{
+    Debug,
+    Info,
+    Warning,
+    Error
+}
+class LogManager
+{
+    static Debug(content :string,level :DebugType = DebugType.Info) :void
+    {
+        switch(level)
+        {
+            case DebugType.Debug:
+                console.log(color.bBlack + color.fWhite + ' DEBUG ' + color.reset + color.core + content);
+            break;
+            case DebugType.Info:
+                console.log(color.core + content);
+            break;
+            case DebugType.Warning:
+                console.log(color.bYellow + color.fBlack + ' WARNING ' + color.reset + content);
+            break;
+            case DebugType.Error:
+                console.log(color.bRed + color.fBlack + ' ERROR ' + color.reset + content);
+            break;
+        }
+    }
+}
 
+const VER = process.env.npm_package_version;
+const PLATFORM = os.platform();
+const BOTCONFIG :BotConfig|null = BotConfig.Parse('config.yaml');
+const STARTTIME :string = Date();
+const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
+const LOGNAME = 'main.log';
+
+// Whats this -- LeZi
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
     if (key === 'KINTERNALLOADERQUIT') {
-        console.log(color.core + 'Core exiting... (Rcvd \'KINTERNALLOADERQUIT\' command)');
+        LogManager.Debug('Core exiting... (Rcvd \'KINTERNALLOADERQUIT\' command)');
         process.exit();
     }
 });
 
-const ver = process.env.npm_package_version;
-const confVer = 1;
-const platform = os.platform();
 
-let kernel = "NotSupport";
-if (platform === 'linux') 
-    kernel = execFileSync('uname', ['-sr']).toString();
-let config: any;
-let TOKEN: string | undefined;
-//let TOKEN = process.env.TELEGRAM_TOKEN;
-let LOGNAME = 'main.log';
 
-console.log(color.core + 'Kalium ' + ver + '\n'
+LogManager.Debug('Kalium ' + VER + '\n'
             + color.core);
+            
+if(BOTCONFIG == null)
+    throw new Error("Read config failure");
+else if (BOTCONFIG.Token  == null)
+    throw new Error("Telegram bot token not found",);
 
-try {
-    config = yaml.parse(fs.readFileSync('config.yaml', 'utf8'));
-    console.log(color.core + 'Config exist, checking config...');
-} catch (e) {
-    console.log(color.core + 'Could not read config, trying creating...');
-}
+LogManager.Debug('All checks passed.');
 
-if (config.core.version) {
-if (config.core.version <= confVer) {
-if (config.core.version == confVer) {
-    console.log(color.core + 'Loading config...');
-    TOKEN = config.env.bottoken || process.env.TELEGRAM_TOKEN;
-    LOGNAME = config.env.logfile || 'main.log';
-} else {
-    // There is nothing now.
-    console.log(color.core + 'Config upgraded, please re-run bot.');
-    process.exit();
-}
-} else {
-    console.log('WARNING: Partial downgrade detected(config version mismatch), bot may not work properly.');
-}
-} else {
-    throw new Error('EKCNFIV: Config is not valid.');
-}
+let bot = new nodeBot(BOTCONFIG?.Token as string, {polling: true});
+LogManager.Debug('Bot core started.\n');
 
-console.log(color.core + 'Running pre-checks...');
-
-if (!TOKEN) {
-    throw new Error('EKPREF: Pre-checking failed.');
-}
-console.log(color.core + 'All checks passed.');
-
-let bot = new nodeBot(TOKEN as string, {polling: true});
-console.log(color.core + 'Bot core started.\n');
-
-fs.writeFile(LOGNAME, 'Kalium ' + ver + ' started on ' + Date() + '\n', { flag: 'a+' }, err => {});
 
 // Receive Messages
 bot.onText(/[\s\S]*/, function (msg, resp) {
@@ -78,7 +79,7 @@ bot.onText(/[\s\S]*/, function (msg, resp) {
         return 'U:' + userId + ' C:' + chatId;
     } }
     log('RECV', 'INFO  ', from() + ' | ' + resp);
-    console.log('\x1b[44m RECV \x1b[42m ' + from() + ' \x1b[0m ' + resp );
+    LogManager.Debug('\x1b[44m RECV \x1b[42m ' + from() + ' \x1b[0m ' + resp );
 });
 
 // Kalium Bot Functions
@@ -91,7 +92,7 @@ function log(type: string, lvl: string, data: string) { // Deprecated, will remo
     fs.writeFile(LOGNAME, logdata, { flag: 'a+' }, err => {});
 }
 function exec(path: string, args: string[]) {
-    console.log('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
+    LogManager.Debug('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
     log('EXEC', 'INFO  ', path + ' ARGS: ' + args )
     try {
         let stdout = execFileSync(path, args).toString();
@@ -101,7 +102,7 @@ function exec(path: string, args: string[]) {
     }
 }
 function secureExec(path: string, args: string[]) {
-    console.log('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
+    LogManager.Debug('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
     log('EXEC', 'INFO  ', path + ' ARGS: ' + args )
     try {
         let stdout = execFileSync(path, args).toString();
@@ -111,18 +112,18 @@ function secureExec(path: string, args: string[]) {
     }
 }
 function send(id: any, msg: string) {
-    console.log('\x1b[43m SEND \x1b[42m ' + id + ' \x1b[0m ' + msg );
+    LogManager.Debug('\x1b[43m SEND \x1b[42m ' + id + ' \x1b[0m ' + msg );
     log('SEND', 'INFO  ', id + ' | ' + msg);
     bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
 }
 async function reply(id: any, msg: string, mid: number) {
-    console.log('\x1b[43m RPLY \x1b[42m ' + id + ' \x1b[0m ' + msg );
+    LogManager.Debug('\x1b[43m RPLY \x1b[42m ' + id + ' \x1b[0m ' + msg );
     log('RPLY', 'INFO  ', id + ' | ' + msg);
     let { message_id } = await bot.sendMessage(id, msg, { parse_mode: 'Markdown', reply_to_message_id: mid });
     return message_id;
 }
 function fwrd(id: any, src: any, msgid: number) {
-    console.log('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
+    LogManager.Debug('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
     log('FWRD', 'INFO  ', id + ' | ' + src + "/" + msgid);
     bot.forwardMessage(id, src, msgid, );
 }
@@ -131,9 +132,8 @@ function err(from: string, stderr: string) {
     return '[ stderr detected ]' + '\n' +
            stderr + '\n' +
            '---' + '\n' +
-           'Kalium ' + ver + ', Kernel ' + kernel;
+           'Kalium ' + VER + ', Kernel ' + KERNEL;
 }
-
 // Bot Commands
 bot.onText(/^\/userinfo/, function (msg) {
     let chatId = msg.chat.id;
@@ -151,7 +151,7 @@ bot.onText(/^\/kping/, function (msg) {
     send(msg.chat.id, resp);
 }); 
 bot.onText(/^\/status/, function (msg) {
-    let resp = 'Kalium Bot v' + ver + ' Status\n' +
+    let resp = 'Kalium Bot v' + VER + ' Status\n' +
                 '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
                 + Date();
     send(msg.chat.id, resp);

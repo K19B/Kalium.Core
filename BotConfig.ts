@@ -1,21 +1,25 @@
-import * as IO from './File.ts';
+import * as IO from './File';
 import * as fs from 'fs';
 
-namespace Kalium.Core
-{
-    class BotConfig
+export class BotConfig
     {
-        Token:string;
-        cVersion:number;
+        Token :string | null = null;
+        cVersion :number = 1.0;
 
-        static Parse(filePath:string):BotConfig
+        static Parse(filePath:string): BotConfig|null
         {
-            if(!IO.File.Exists(filePath))
-                throw new Error("Config file not found.");
-
-            let content = fs.readFileSync(filePath, 'utf8');
-            
-            return IO.YamlSerializer.Deserialize(content);
+            try
+            {
+                if(!IO.File.Exists(filePath))
+                    throw new Error("Config file not found.");
+    
+                let content = fs.readFileSync(filePath, 'utf8');
+                
+                return IO.YamlSerializer.Deserialize(content);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
-}

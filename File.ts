@@ -10,11 +10,7 @@ export class File
             fs.statSync(filePath);
             return true;
         } catch (err) {
-            if (err.code === 'ENOENT') {
-                return false;
-            } else {
-                 throw err;
-            }
+            return false;
         }
     }
 }
