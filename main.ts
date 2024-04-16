@@ -1,4 +1,3 @@
-import * as color from './lib/color';
 import * as os from 'os';
 import nodeBot, { Audio, Document, ParseMode, PhotoSize } from 'node-telegram-bot-api';
 import fs from 'fs';
@@ -6,7 +5,7 @@ import yaml from 'yaml';
 import { execFileSync } from 'child_process';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import * as arc from 'kalium-vanilla-arc';
+import * as arc from './plugin/kalium-vanilla-arc/main';
 import { BotConfig } from './BotConfig';
 enum DebugType
 {
