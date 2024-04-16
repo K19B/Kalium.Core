@@ -5,6 +5,7 @@ import yaml from 'yaml';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
 import * as arc from './plugin/kalium-vanilla-arc/main';
+import * as os from 'os';
 
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
@@ -16,8 +17,11 @@ process.stdin.on('data', (data: Buffer) => {
 
 const ver = process.env.npm_package_version;
 const confVer = 1;
-const kernel = execFileSync('uname', ['-sr']).toString();
+const platform = os.platform();
 
+let kernel = "NotSupport";
+if (platform === 'linux') 
+    kernel = execFileSync('uname', ['-sr']).toString();
 let config: any;
 let TOKEN: string | undefined;
 //let TOKEN = process.env.TELEGRAM_TOKEN;
