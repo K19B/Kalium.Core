@@ -1,7 +1,7 @@
 import * as color from './lib/color';
 import * as arc from './plugin/kalium-vanilla-arc/main';
 import * as os from 'os';
-import nodeBot from 'node-telegram-bot-api';
+import nodeBot, { Audio, Document, ParseMode, PhotoSize } from 'node-telegram-bot-api';
 import fs from 'fs';
 import yaml from 'yaml';
 import { execFileSync } from 'child_process';
@@ -35,6 +35,115 @@ class LogManager
         }
     }
 }
+class Message{
+    Id: number
+    From: nodeBot.User
+    Chat: nodeBot.Chat
+    Text: string|undefined
+    Audio: Audio|undefined
+    Document: Document|undefined
+    Photo: PhotoSize[]|undefined
+    Command: Command| undefined
+    Client: nodeBot
+
+    constructor(id: number,from: nodeBot.User,chat: nodeBot.Chat,command: Command|undefined)
+    {
+        this.Id = id;
+        this.From = from;
+        this.Chat = chat;
+        this.Command = command;
+        if(command !== undefined)
+        {
+            (command?.Content ?? [""]).unshift(command?.Prefix!);
+            this.Text = command.Content.join(" ");
+        }
+        else
+            this.Text = undefined;
+    }
+
+    /// 判断是否在私有会话
+    isPrivate(): boolean 
+    {
+        return this.Chat.type === "private";
+    }
+    /// 判断是否在群聊
+    isGroup(): boolean
+    {
+        return this.Chat.type === ("group" || "supergroup");
+    }
+    async reply(text: string,
+                parseMode: ParseMode = "Markdown"): Promise<Message| undefined>
+    {
+        let msg = await this.Client.sendMessage(this.Chat.id, text, { parse_mode: parseMode, reply_to_message_id: this.Id });
+
+        return Message.parse(this.Client,msg);
+    }
+    async edit(newText: string,
+               parseMode: ParseMode = "Markdown"): Promise<Message| undefined>
+    {
+        if(!(await this.canSend()))
+            return undefined;
+        let msg = await this.Client.editMessageText(newText,{ parse_mode: parseMode}) as nodeBot.Message
+
+        return Message.parse(this.Client,msg);
+    }
+    static async send(botClient: nodeBot,
+                      chatId:number,
+                      text: string,
+                      parseMode: ParseMode = "Markdown"): Promise<Message| undefined> 
+    {
+        let msg = await bot.sendMessage(chatId, text, { parse_mode: parseMode })
+
+        return Message.parse(botClient,msg);
+    }
+    static parse(bot: nodeBot,botMsg: nodeBot.Message): Message| undefined
+    {
+        try
+        {
+            let content: string|undefined = botMsg.text == undefined ?  botMsg.caption ?? "" : botMsg.text;
+            let command: Command|undefined;
+            if(content.length < 2)
+                command = undefined
+            else
+            {
+                let array : string[] = content.split(" ").filter(x => x !== "");
+                    let prefix: string = array[0].replace("/","");
+                command = new Command(prefix,array.slice(1));
+            }       
+
+            let msg = new Message(botMsg.message_id,botMsg.from!,botMsg.chat!,command)
+            msg.Text = content;
+            msg.Audio = botMsg.audio;
+            msg.Document = botMsg.document;
+            msg.Photo = botMsg.photo;
+            msg.Client = bot;
+            return msg;
+        }
+        catch
+        {
+            return undefined;
+        }
+    }
+    private async canSend(): Promise<boolean>
+    {
+        
+        if(this.Client != undefined)
+            return true;
+        else if((await (this.Client as nodeBot).getMe()).id === this.From.id)
+            return true;
+        return false;
+    }
+}
+class Command{
+    Prefix: string
+    Content: string[]
+
+    constructor(prefix: string,content: string[])
+    {
+        this.Prefix = prefix;
+        this.Content = content;
+    }
+}
 
 const VER = process.env.npm_package_version;
 const PLATFORM = os.platform();
@@ -52,11 +161,8 @@ process.stdin.on('data', (data: Buffer) => {
     }
 });
 
-
-
 LogManager.Debug('Kalium ' + VER + '\n'
-            + color.core);
-            
+            + color.core);           
 if(BOTCONFIG == null)
     throw new Error("Read config failure");
 else if (BOTCONFIG.Token  == null)
@@ -65,22 +171,64 @@ else if (BOTCONFIG.Token  == null)
 LogManager.Debug('All checks passed.');
 
 let bot = new nodeBot(BOTCONFIG?.Token as string, {polling: true});
-LogManager.Debug('Bot core started.\n');
+const USERNAME = (await bot.getMe()).username;
+let Commands = await bot.getMyCommands();
 
+LogManager.Debug('Bot core started.\n');
+bot.onText(/[\s\S]*/,messageHandle);
 
 // Receive Messages
-bot.onText(/[\s\S]*/, function (msg, resp) {
-    let chatId = msg.chat.id;
-    let userId = msg.from?.id;
-    function from() {
-    if (chatId == userId) {
-        return 'P:' + chatId;
-    } else {
-        return 'U:' + userId + ' C:' + chatId;
-    } }
-    log('RECV', 'INFO  ', from() + ' | ' + resp);
-    LogManager.Debug('\x1b[44m RECV \x1b[42m ' + from() + ' \x1b[0m ' + resp );
-});
+function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | null)
+{
+    let msg: Message| undefined = Message.parse(bot,botMsg);
+    if(msg == undefined)
+        return;
+    LogManager.Debug("Received message:\n"+
+                     "From: " + msg.From.id + "\n" +
+                     "Chat:" + msg.Chat.id + "\n" +
+                     "Content: " + msg.Text ?? "EMPTY"
+    );
+    if(msg.Command == undefined)
+        return;
+    else if(!msg.Command.Prefix.includes(USERNAME as string))
+        return;
+    else if(msg.Command.Prefix.split("@")[1] != (USERNAME as string))
+        return
+
+    LogManager.Debug("User Request:\n"+
+                     "From: " + msg.From.id + "\n" +
+                     "Chat:" + msg.Chat.id + "\n" +
+                     "Prefix: " + msg.Command.Prefix + "\n" +
+                     "Params: " + msg.Command.Content.join(" ")
+    );
+    let commands = Commands.map(x => x.command);
+    let prefix = msg.Command.Prefix.split("@")[0];
+    if(!commands.includes(prefix))    
+    {
+        LogManager.Debug("Bot unsupport,skip...");
+        return;
+    }
+    commandHandle(msg);
+}
+function commandHandle(msg: Message)
+{
+    let command = msg.Command as Command;
+    switch(command.Prefix)
+    {
+        case "userinfo":
+            getUserInfo(msg);
+        break;
+    }
+}
+
+function getUserInfo(msg: Message): void
+{
+    let userId = msg.From.id;
+    let resp = 'Kalium User Info\n```\nID: ' + userId +
+               '\n```' + Date();
+    Message.send(bot,msg.Chat.id,resp);
+}
+
 
 // Kalium Bot Functions
 function serverTime() {
@@ -211,6 +359,10 @@ bot.onText(/^\/check/gusi, function (msg) {
     // Finish Check
     reply(msg.chat.id, checkFqdn + checkUrl, msg.message_id);
 });
+
+
+
+// Mai Rank Handler
 let maisegaId: undefined | string;
 let maiPasswd: undefined | string;
 let 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
