@@ -28,6 +28,10 @@ function run() {
         process.stdout.write(data.toString());
     });
 
+    subprocess.stderr.on('data', data => {
+        process.stderr.write(color.fRed + data.toString());
+    });
+
     subprocess.on('exit', () => {
         console.log(color.loader + 'Subprocess exited.');
         run();
@@ -38,6 +42,9 @@ function run() {
         confWatcher.close();
         coreWatcher.close();
         subprocess.stdin.write('KINTERNALLOADERQUIT\n');
+        // do not use CTRLC/SIGTERM/SIGKILL to kill process
+        // otherwise subprocess will never exit on reload
+        // until there is a core error or loader restart
     };
     async function deferRestart() {
         console.log(color.loader + 'Deferred reloading...');
