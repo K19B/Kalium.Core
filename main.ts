@@ -1,81 +1,315 @@
-import nodeBot from 'node-telegram-bot-api';
-import { execFileSync } from 'child_process';
+import * as color from './lib/color';
+import * as os from 'os';
+import nodeBot, { Audio, Document, ParseMode, PhotoSize } from 'node-telegram-bot-api';
 import fs from 'fs';
 import yaml from 'yaml';
+import { execFileSync } from 'child_process';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
 import * as arc from 'kalium-vanilla-arc';
+import { BotConfig } from './BotConfig';
+enum DebugType
+{
+    Debug,
+    Info,
+    Warning,
+    Error
+}
+class LogManager
+{
+    static Debug(content :string,level :DebugType = DebugType.Info) :void
+    {
+        switch(level)
+        {
+            case DebugType.Debug:
+                console.log(color.bBlack + color.fWhite + ' DEBUG ' + color.reset + color.core + content);
+            break;
+            case DebugType.Info:
+                console.log(color.core + content);
+            break;
+            case DebugType.Warning:
+                console.log(color.bYellow + color.fBlack + ' WARNING ' + color.reset + content);
+            break;
+            case DebugType.Error:
+                console.log(color.bRed + color.fBlack + ' ERROR ' + color.reset + content);
+            break;
+        }
+    }
+}
+class Message{
+    Id: number
+    From: nodeBot.User
+    Chat: nodeBot.Chat
+    Text: string|undefined
+    Audio: Audio|undefined
+    Document: Document|undefined
+    Photo: PhotoSize[]|undefined
+    Command: Command| undefined
+    Client: nodeBot| undefined
 
+    constructor(id: number,from: nodeBot.User,chat: nodeBot.Chat,command: Command|undefined)
+    {
+        this.Id = id;
+        this.From = from;
+        this.Chat = chat;
+        this.Command = command;
+        if(command !== undefined)
+        {
+            (command?.Content ?? [""]).unshift(command?.Prefix!);
+            this.Text = command.Content.join(" ");
+        }
+        else
+            this.Text = undefined;
+    }
+
+    /// 判断是否在私有会话
+    isPrivate(): boolean 
+    {
+        return this.Chat.type === "private";
+    }
+    /// 判断是否在群聊
+    isGroup(): boolean
+    {
+        return this.Chat.type === ("group" || "supergroup");
+    }
+    async reply(text: string,
+                parseMode: ParseMode = "Markdown"): Promise<Message| undefined>
+    {
+        let msg = await this.Client!.sendMessage(this.Chat.id, text, { parse_mode: parseMode, reply_to_message_id: this.Id });
+
+        return Message.parse(this.Client!,msg);
+    }
+    async edit(newText: string,
+               parseMode: ParseMode = "Markdown"): Promise<Message| undefined>
+    {
+        if(!(await this.canSend()))
+            return undefined;
+        let msg = await this.Client!.editMessageText(newText,{ parse_mode: parseMode}) as nodeBot.Message
+
+        return Message.parse(this.Client!,msg);
+    }
+    static async send(botClient: nodeBot,
+                      chatId:number,
+                      text: string,
+                      parseMode: ParseMode = "Markdown"): Promise<Message| undefined> 
+    {
+        let msg = await bot.sendMessage(chatId, text, { parse_mode: parseMode })
+
+        return Message.parse(botClient,msg);
+    }
+    static parse(bot: nodeBot,botMsg: nodeBot.Message): Message| undefined
+    {
+        try
+        {
+            let content: string|undefined = botMsg.text == undefined ?  botMsg.caption ?? "" : botMsg.text;
+            let command: Command|undefined;
+            if(content.length < 2)
+                command = undefined
+            else
+            {
+                let array : string[] = content.split(" ").filter(x => x !== "");
+                    let prefix: string = array[0].replace("/","");
+                command = new Command(prefix,array.slice(1));
+            }       
+
+            let msg = new Message(botMsg.message_id,botMsg.from!,botMsg.chat!,command)
+            msg.Text = content;
+            msg.Audio = botMsg.audio;
+            msg.Document = botMsg.document;
+            msg.Photo = botMsg.photo;
+            msg.Client = bot;
+            return msg;
+        }
+        catch
+        {
+            return undefined;
+        }
+    }
+    private async canSend(): Promise<boolean>
+    {
+        
+        if(this.Client != undefined)
+            return true;
+        else if((await (this.Client! as nodeBot).getMe()).id === this.From.id)
+            return true;
+        return false;
+    }
+}
+class Command{
+    Prefix: string
+    Content: string[]
+
+    constructor(prefix: string,content: string[])
+    {
+        this.Prefix = prefix;
+        this.Content = content;
+    }
+}
+
+const VER = process.env.npm_package_version;
+const PLATFORM = os.platform();
+const BOTCONFIG :BotConfig|null = BotConfig.Parse('config.yaml');
+const STARTTIME :string = Date();
+const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
+const LOGNAME = 'main.log';
+const 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
+// Whats this -- LeZi
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
     if (key === 'KINTERNALLOADERQUIT') {
-        console.log(color.core + 'Core exiting... (Rcvd \'KINTERNALLOADERQUIT\' command)');
+        LogManager.Debug('Core exiting... (Rcvd \'KINTERNALLOADERQUIT\' command)');
         process.exit();
     }
 });
 
-const ver = process.env.npm_package_version;
-const confVer = 1;
-const kernel = execFileSync('uname', ['-sr']).toString();
+LogManager.Debug('Kalium ' + VER + '\n'
+            + color.core);           
+if(BOTCONFIG == null)
+    throw new Error("Read config failure");
+else if (BOTCONFIG.Token  == null)
+    throw new Error("Telegram bot token not found",);
 
-let config: any;
-let TOKEN: string | undefined;
-//let TOKEN = process.env.TELEGRAM_TOKEN;
-let LOGNAME = 'main.log';
+LogManager.Debug('All checks passed.');
 
-console.log(color.core + 'Kalium ' + ver + '\n'
-            + color.core);
+let bot = new nodeBot(BOTCONFIG?.Token as string, {polling: true});
+bot.onText(/[\s\S]*/,messageHandle);
 
-try {
-    config = yaml.parse(fs.readFileSync('config.yaml', 'utf8'));
-    console.log(color.core + 'Config exist, checking config...');
-} catch (e) {
-    console.log(color.core + 'Could not read config, trying creating...');
-}
+LogManager.Debug('Bot core started.\n');
 
-if (config.core.version) {
-if (config.core.version <= confVer) {
-if (config.core.version == confVer) {
-    console.log(color.core + 'Loading config...');
-    TOKEN = config.env.bottoken || process.env.TELEGRAM_TOKEN;
-    LOGNAME = config.env.logfile || 'main.log';
-} else {
-    // There is nothing now.
-    console.log(color.core + 'Config upgraded, please re-run bot.');
-    process.exit();
-}
-} else {
-    console.log('WARNING: Partial downgrade detected(config version mismatch), bot may not work properly.');
-}
-} else {
-    throw new Error('EKCNFIV: Config is not valid.');
-}
-
-console.log(color.core + 'Running pre-checks...');
-
-if (!TOKEN) {
-    throw new Error('EKPREF: Pre-checking failed.');
-}
-console.log(color.core + 'All checks passed.');
-
-let bot = new nodeBot(TOKEN as string, {polling: true});
-console.log(color.core + 'Bot core started.\n');
-
-fs.writeFile(LOGNAME, 'Kalium ' + ver + ' started on ' + Date() + '\n', { flag: 'a+' }, err => {});
 
 // Receive Messages
-bot.onText(/[\s\S]*/, function (msg, resp) {
-    let chatId = msg.chat.id;
-    let userId = msg.from?.id;
-    function from() {
-    if (chatId == userId) {
-        return 'P:' + chatId;
+async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | null): Promise<void>
+{
+    const USERNAME: string = (await bot.getMe()).username as string;
+    let Commands = await bot.getMyCommands();
+    let msg: Message| undefined = Message.parse(bot,botMsg);
+    if(msg == undefined)
+        return;
+    LogManager.Debug("Received message:\n"+
+                     "From: " + msg.From.id + "\n" +
+                     "Chat:" + msg.Chat.id + "\n" +
+                     "Content: " + msg.Text ?? "EMPTY"
+    );
+    if(msg.Command == undefined)
+        return;
+    else if(!msg.Command.Prefix.includes(USERNAME as string))
+        return;
+    else if(msg.Command.Prefix.split("@")[1] != (USERNAME as string))
+        return
+
+    LogManager.Debug("User Request:\n"+
+                     "From: " + msg.From.id + "\n" +
+                     "Chat:" + msg.Chat.id + "\n" +
+                     "Prefix: " + msg.Command.Prefix + "\n" +
+                     "Params: " + msg.Command.Content.join(" ")
+    );
+    let commands = Commands.map(x => x.command);
+    let prefix = msg.Command.Prefix.split("@")[0];
+    if(!commands.includes(prefix))    
+    {
+        LogManager.Debug("Bot unsupport,skip...");
+        return;
+    }
+    commandHandle(msg);
+}
+
+// Bot Commands
+function commandHandle(msg: Message): void
+{
+    let command = msg.Command as Command;
+    switch(command.Prefix)
+    {
+        case "userinfo":
+            getUserInfo(msg);
+        break;
+        case "kping":
+            checkAlive(msg);
+        break;
+        case "status":
+            getBotStatus(msg);
+        break;
+        case "wol":
+            wolHandle(msg);
+        break;
+        case "来玉林北流":
+            fuckZzy(msg);
+        break;
+        case "check":
+            netQuery(msg);
+        break;
+        case "setid":
+            maiSetId(msg);
+        break;
+        case "setp":
+            maiSetP(msg);
+        break;
+        case "rank":
+            maiRank(msg);
+        break;
+    }
+}
+function getUserInfo(msg: Message): void
+{
+    let userId = msg.From.id;
+    let resp = 'Kalium User Info\n```\nID: ' + userId +
+               '\n```' + Date();
+    msg.reply(resp);
+}
+function checkAlive(msg: Message): void
+{
+    let userId = msg.From.id;
+    let resp = 'Kalium is alive.\nServer time: ' + Date();
+    msg.reply(resp);
+}
+function getBotStatus(msg: Message): void
+{
+    let userId = msg.From.id;
+    let resp = 'Kalium Bot v' + VER + ' Status\n' +
+                '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
+                + Date();
+    msg.reply(resp);
+}
+function wolHandle(msg: Message): void
+{
+    let userId = msg.From.id; 
+    if(userId == 1613650110)
+    {
+        let resp = '`' + exec('wakeonlan', ['08:bf:b8:43:30:15']) + '`';
+        msg.reply(resp);
+    }
+    else
+        msg.reply("Permission Denied");
+}
+function fuckZzy(msg: Message): void
+{
+    fwrd(msg.Chat.id, "@MBRFans", 374741);
+}
+function netQuery(msg: Message): void
+{
+    let domain = msg.Command?.Content.join(" ") as string;
+    var checkFqdn = 'FQDN not detected\n';
+    var checkUrl = 'URL not detected';
+    // Part I: Check FQDN
+    let fqdn = domain.match(/(((?!-))(xn--|_)?[a-z0-9-]{0,61}[a-z0-9]{1,1}\.)+(xn--)?([a-z0-9][a-z0-9\-]{0,60}|[a-z0-9-]{1,30}\.[a-z]{2,})/);
+    if (fqdn == null) {
+        var checkFqdn = 'FQDN not detected\n';
     } else {
-        return 'U:' + userId + ' C:' + chatId;
-    } }
-    log('RECV', 'INFO  ', from() + ' | ' + resp);
-    console.log('\x1b[44m RECV \x1b[42m ' + from() + ' \x1b[0m ' + resp );
-});
+        let fqdnLookup = exec('nslookup', [fqdn[0], 'mbr.moe']);
+        var checkFqdn = 'FQDN Detected\n```nslookup\n' + fqdnLookup + '\n```\n';
+    }
+    // Part II: Check URL
+    let url = domain.match(/(?<protocol>https?):\/\/(?<domain>(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((?=.{1,255}$)[0-9A-Za-z](?:(?:[0-9A-Za-z]|\b-){0,61}[0-9A-Za-z])?(?:\.[0-9A-Za-z](?:(?:[0-9A-Za-z]|\b-){0,61}[0-9A-Za-z])?)*\.?)|(\[(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))\])))(:(?<port>([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])))?(?<path>\/[a-zA-Z0-9\-\._~:\/\?#\[\]@!\$&'\(\)\*\+,;=]*)?/gusi);
+    if (url == null) {
+        var checkUrl = 'URL not detected';
+        //send(msg.chat.id, 'Invalid');
+    } else {
+        let curlHeader = exec('curl', ['-IsSL', url[0]]);
+        var checkUrl = 'URL Detected\n```curl\n' + curlHeader + '\n```\n';
+        //send(msg.chat.id, resp);
+    }
+    // Finish Check
+    msg.reply(checkFqdn + checkUrl);
+}
 
 // Kalium Bot Functions
 function serverTime() {
@@ -87,7 +321,7 @@ function log(type: string, lvl: string, data: string) { // Deprecated, will remo
     fs.writeFile(LOGNAME, logdata, { flag: 'a+' }, err => {});
 }
 function exec(path: string, args: string[]) {
-    console.log('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
+    LogManager.Debug('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
     log('EXEC', 'INFO  ', path + ' ARGS: ' + args )
     try {
         let stdout = execFileSync(path, args).toString();
@@ -97,7 +331,7 @@ function exec(path: string, args: string[]) {
     }
 }
 function secureExec(path: string, args: string[]) {
-    console.log('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
+    LogManager.Debug('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
     log('EXEC', 'INFO  ', path + ' ARGS: ' + args )
     try {
         let stdout = execFileSync(path, args).toString();
@@ -106,19 +340,14 @@ function secureExec(path: string, args: string[]) {
         return err('EXEC', 'Is the token valid?');
     }
 }
-function send(id: any, msg: string) {
-    console.log('\x1b[43m SEND \x1b[42m ' + id + ' \x1b[0m ' + msg );
-    log('SEND', 'INFO  ', id + ' | ' + msg);
-    bot.sendMessage(id, msg, { parse_mode: 'Markdown' });
-}
 async function reply(id: any, msg: string, mid: number) {
-    console.log('\x1b[43m RPLY \x1b[42m ' + id + ' \x1b[0m ' + msg );
+    LogManager.Debug('\x1b[43m RPLY \x1b[42m ' + id + ' \x1b[0m ' + msg );
     log('RPLY', 'INFO  ', id + ' | ' + msg);
     let { message_id } = await bot.sendMessage(id, msg, { parse_mode: 'Markdown', reply_to_message_id: mid });
     return message_id;
 }
 function fwrd(id: any, src: any, msgid: number) {
-    console.log('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
+    LogManager.Debug('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
     log('FWRD', 'INFO  ', id + ' | ' + src + "/" + msgid);
     bot.forwardMessage(id, src, msgid, );
 }
@@ -127,106 +356,35 @@ function err(from: string, stderr: string) {
     return '[ stderr detected ]' + '\n' +
            stderr + '\n' +
            '---' + '\n' +
-           'Kalium ' + ver + ', Kernel ' + kernel;
+           'Kalium ' + VER + ', Kernel ' + KERNEL;
 }
 
-// Bot Commands
-bot.onText(/^\/userinfo/, function (msg) {
-    let chatId = msg.chat.id;
-    let userId = msg.from?.id;
-    if (chatId == userId) {
-        let resp = 'Kalium User Info\n```\nID: ' + userId +
-                   '\nLANG: ' + msg.from?.language_code + '\n```' + Date();
-        send(msg.chat.id, resp);
-    } else {
-        send(msg.chat.id, 'Private Message Only');
-    }
-}); 
-bot.onText(/^\/kping/, function (msg) {
-    let resp = 'Kalium is alive.\nServer time: ' + Date();
-    send(msg.chat.id, resp);
-}); 
-bot.onText(/^\/status/, function (msg) {
-    let resp = 'Kalium Bot v' + ver + ' Status\n' +
-                '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
-                + Date();
-    send(msg.chat.id, resp);
-}); 
-bot.onText(/^\/wol/, function (msg) {
-    if (msg.from?.id == 1613650110) {
-        let resp = '`' + exec('wakeonlan', ['08:bf:b8:43:30:15']) + '`';
-        send(msg.chat.id, resp);
-    } else {
-        send(msg.chat.id, 'Invalid');
-    }
-});
-/* bot.onText(/\/(?:\$([a-zA-Z0-9]\S*)|\$?([^a-zA-Z0-9\s]\S*))\s*(.*)/, function (msg, resp) {
-    //let data = resp! + '';
-    function reply() {
-    if (msg.reply_to_message?.from?.id == msg.from?.id || msg.reply_to_message?.from?.id == undefined) {
-        let reply = ' 自己';
-        return reply;
-    } else {
-        let reply = ' ' + msg.reply_to_message?.from?.first_name;
-        return reply;
-    } }
-    function data() {
-    if (resp![3] == "") {
-        let data = msg.chat.first_name! + ' '+ resp![2] + '了' + reply() + ' ！';
-        return data;
-    } else {
-        let data = msg.chat.first_name! + ' '+ resp![2] + reply() + resp![3] + ' ！';
-        return data;
-    } }
-    send(msg.chat.id, data());
-}); */
-bot.onText(/来玉林北流/, function (msg) { // Misaka Logger
-    fwrd(msg.chat.id, "@MBRFans", 374741);
-});
-bot.onText(/^\/check/gusi, function (msg) {
-    var checkFqdn = 'FQDN not detected\n';
-    var checkUrl = 'URL not detected';
-    // Part I: Check FQDN
-    let fqdn = msg.text!.match(/(((?!-))(xn--|_)?[a-z0-9-]{0,61}[a-z0-9]{1,1}\.)+(xn--)?([a-z0-9][a-z0-9\-]{0,60}|[a-z0-9-]{1,30}\.[a-z]{2,})/);
-    if (fqdn == null) {
-        var checkFqdn = 'FQDN not detected\n';
-    } else {
-        let fqdnLookup = exec('nslookup', [fqdn[0], 'mbr.moe']);
-        var checkFqdn = 'FQDN Detected\n```nslookup\n' + fqdnLookup + '\n```\n';
-    }
-    // Part II: Check URL
-    let url = msg.text!.match(/(?<protocol>https?):\/\/(?<domain>(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|((?=.{1,255}$)[0-9A-Za-z](?:(?:[0-9A-Za-z]|\b-){0,61}[0-9A-Za-z])?(?:\.[0-9A-Za-z](?:(?:[0-9A-Za-z]|\b-){0,61}[0-9A-Za-z])?)*\.?)|(\[(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))\])))(:(?<port>([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])))?(?<path>\/[a-zA-Z0-9\-\._~:\/\?#\[\]@!\$&'\(\)\*\+,;=]*)?/gusi);
-    if (url == null) {
-        var checkUrl = 'URL not detected';
-        //send(msg.chat.id, 'Invalid');
-    } else {
-        let curlHeader = exec('curl', ['-IsSL', url[0]]);
-        var checkUrl = 'URL Detected\n```curl\n' + curlHeader + '\n```\n';
-        //send(msg.chat.id, resp);
-    }
-    // Finish Check
-    reply(msg.chat.id, checkFqdn + checkUrl, msg.message_id);
-});
+
+
+// Mai Rank Handler
 let maisegaId: undefined | string;
 let maiPasswd: undefined | string;
-let 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
-bot.onText(/^\/setid/, function (msg) {
-    maisegaId = msg.text?.split(' ')[1]
-    reply(msg.chat.id, "OK", msg.message_id);
-});
-bot.onText(/^\/setp/, function (msg) {
-    maiPasswd = msg.text?.split(' ')[1]
-    reply(msg.chat.id, "OK", msg.message_id);
-});
-bot.onText(/白丝排行榜/, async function (msg) {
+
+function maiSetId(msg: Message): void
+{
+    maisegaId = msg.Command?.Content[1];
+    msg.reply("OK");
+}
+function maiSetP(msg: Message): void
+{
+    maiPasswd = msg.Command?.Content[1];
+    msg.reply("OK");
+}
+async function maiRank(msg: Message): Promise<void>
+{
     if(!maisegaId || !maiPasswd) {
         let result = "你还没有设置 DX Net 登录凭据哇！\n使用 /setid 和 /setp 登录！"
-        reply(msg.chat.id, result, msg.message_id);
+        msg.reply(result);
     } else {
-        let result = maiRankJp(白丝Id, maisegaId, maiPasswd);
-        reply(msg.chat.id, '```\n' + await result + '```', msg.message_id);
+        let result = await maiRankJp(白丝Id, maisegaId, maiPasswd);
+        msg.reply("```\n" + result + "\n```");
     }
-});
+}
 bot.onText(/^\/kupdate/, function (msg) {
     if (msg.from?.id == 1613650110) {
         let resp = '```Result\n' + exec('git', ['pull']) + '```';
