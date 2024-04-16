@@ -1,3 +1,6 @@
+# v0.11.2
+- chore: deps(add) kalium-vanilla-arc
+
 # v0.11.1
 - fix: arcRtnCalc
 
