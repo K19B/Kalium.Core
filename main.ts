@@ -6,143 +6,10 @@ import { execFileSync } from 'child_process';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
 import { BotConfig } from './BotConfig';
+import { LogManager,Message,Command } from './Class';
+import { DatabaseManager } from './dbManager';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
-enum DebugType
-{
-    Debug,
-    Info,
-    Warning,
-    Error
-}
-class LogManager
-{
-    static Debug(content :string,level :DebugType = DebugType.Info) :void
-    {
-        switch(level)
-        {
-            case DebugType.Debug:
-                console.log(color.bBlack + color.fWhite + ' DEBUG ' + color.reset + color.core + content);
-            break;
-            case DebugType.Info:
-                console.log(color.core + content);
-            break;
-            case DebugType.Warning:
-                console.log(color.bYellow + color.fBlack + ' WARNING ' + color.reset + content);
-            break;
-            case DebugType.Error:
-                console.log(color.bRed + color.fBlack + ' ERROR ' + color.reset + content);
-            break;
-        }
-    }
-}
-class Message{
-    Id: number
-    From: nodeBot.User
-    Chat: nodeBot.Chat
-    Text: string|undefined
-    Audio: Audio|undefined
-    Document: Document|undefined
-    Photo: PhotoSize[]|undefined
-    Command: Command| undefined
-    Client: nodeBot| undefined
 
-    constructor(id: number,from: nodeBot.User,chat: nodeBot.Chat,command: Command|undefined)
-    {
-        this.Id = id;
-        this.From = from;
-        this.Chat = chat;
-        this.Command = command;
-        if(command !== undefined)
-        {
-            this.Text = "/" + command?.Prefix! + " " + command.Content.join(" ");
-        }
-        else
-            this.Text = undefined;
-    }
-
-    /// 判断是否在私有会话
-    isPrivate(): boolean 
-    {
-        return this.Chat.type === "private";
-    }
-    /// 判断是否在群聊
-    isGroup(): boolean
-    {
-        return this.Chat.type === ("group" || "supergroup");
-    }
-    async reply(text: string,
-                parseMode: ParseMode = "Markdown"): Promise<Message| undefined>
-    {
-        let msg = await this.Client!.sendMessage(this.Chat.id, text, { parse_mode: parseMode, reply_to_message_id: this.Id });
-
-        return Message.parse(this.Client!,msg);
-    }
-    async edit(newText: string,
-               parseMode: ParseMode = "Markdown"): Promise<Message| undefined>
-    {
-        if(!(await this.canSend()))
-            return undefined;
-        let msg = await this.Client!.editMessageText(newText,{ parse_mode: parseMode}) as nodeBot.Message
-
-        return Message.parse(this.Client!,msg);
-    }
-    static async send(botClient: nodeBot,
-                      chatId:number,
-                      text: string,
-                      parseMode: ParseMode = "Markdown"): Promise<Message| undefined> 
-    {
-        let msg = await bot.sendMessage(chatId, text, { parse_mode: parseMode })
-
-        return Message.parse(botClient,msg);
-    }
-    static parse(bot: nodeBot,botMsg: nodeBot.Message): Message| undefined
-    {
-        try
-        {
-            let content: string|undefined = botMsg.text == undefined ?  botMsg.caption ?? "" : botMsg.text;
-            let command: Command|undefined;
-            if(content.length < 2)
-                command = undefined
-            else
-            {
-                let array : string[] = content.split(" ").filter(x => x !== "");
-                let prefix: string = array[0].replace("/","");
-                command = new Command(prefix,array.slice(1));
-            }       
-
-            let msg = new Message(botMsg.message_id,botMsg.from!,botMsg.chat!,command)
-            msg.Text = content;
-            msg.Audio = botMsg.audio;
-            msg.Document = botMsg.document;
-            msg.Photo = botMsg.photo;
-            msg.Client = bot;
-            return msg;
-        }
-        catch
-        {
-            return undefined;
-        }
-    }
-    private async canSend(): Promise<boolean>
-    {
-        
-        if(this.Client != undefined)
-            return true;
-        else if((await (this.Client! as nodeBot).getMe()).id === this.From.id)
-            return true;
-        return false;
-    }
-}
-class Command{
-    Prefix: string
-    Content: string[]
-
-    constructor(prefix: string,content: string[])
-    {
-        this.Prefix = prefix;
-        this.Content = content;
-    }
-}
 
 const VER = process.env.npm_package_version;
 const PLATFORM = os.platform();
@@ -150,8 +17,11 @@ const BOTCONFIG :BotConfig|null = BotConfig.Parse('config.yaml');
 const STARTTIME :string = Date();
 const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
 const LOGNAME = 'main.log';
+const DB = new DatabaseManager("KaliumCore.db");
 const 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
 // Whats this -- LeZi
+
+DB.getTables().then(x => x.forEach(y =>{LogManager.Debug(y)}));
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
     if (key === 'KINTERNALLOADERQUIT') {

@@ -22,7 +22,7 @@
   "devDependencies": {
     "@types/got": "^9.6.12",
     "got": "^14.0.0",
-    "kalium-vanilla-arc": "5.5.7",
+    "kalium-vanilla-arc": "latest",
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
   }
