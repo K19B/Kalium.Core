@@ -5,8 +5,8 @@ import yaml from 'yaml';
 import { execFileSync } from 'child_process';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import * as arc from 'kalium-vanilla-arc';
 import { BotConfig } from './BotConfig';
+import { arcRtnCalc } from 'kalium-vanilla-arc';
 enum DebugType
 {
     Debug,
@@ -54,8 +54,7 @@ class Message{
         this.Command = command;
         if(command !== undefined)
         {
-            (command?.Content ?? [""]).unshift(command?.Prefix!);
-            this.Text = command.Content.join(" ");
+            this.Text = "/" + command?.Prefix! + " " + command.Content.join(" ");
         }
         else
             this.Text = undefined;
@@ -107,7 +106,7 @@ class Message{
             else
             {
                 let array : string[] = content.split(" ").filter(x => x !== "");
-                    let prefix: string = array[0].replace("/","");
+                let prefix: string = array[0].replace("/","");
                 command = new Command(prefix,array.slice(1));
             }       
 
@@ -186,19 +185,22 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
         return;
     LogManager.Debug("Received message:\n"+
                      "From: " + msg.From.id + "\n" +
-                     "Chat:" + msg.Chat.id + "\n" +
+                     "Chat: " + msg.Chat.id + "\n" +
                      "Content: " + msg.Text ?? "EMPTY"
     );
     if(msg.Command == undefined)
         return;
-    else if(!msg.Command.Prefix.includes(USERNAME as string))
-        return;
-    else if(msg.Command.Prefix.split("@")[1] != (USERNAME as string))
-        return
+    if(msg.isGroup())
+    {
+        if(!msg.Command.Prefix.includes(USERNAME as string))
+            return;
+        else if(msg.Command.Prefix.split("@")[1] != (USERNAME as string))
+            return
+    }
 
     LogManager.Debug("User Request:\n"+
                      "From: " + msg.From.id + "\n" +
-                     "Chat:" + msg.Chat.id + "\n" +
+                     "Chat: " + msg.Chat.id + "\n" +
                      "Prefix: " + msg.Command.Prefix + "\n" +
                      "Params: " + msg.Command.Content.join(" ")
     );
@@ -244,6 +246,12 @@ function commandHandle(msg: Message): void
         break;
         case "rank":
             maiRank(msg);
+        break;
+        case "kupdate":
+            maiUpdate(msg);
+        break;
+        case "karcCalc":
+            arcCalc(msg);
         break;
     }
 }
@@ -339,12 +347,6 @@ function secureExec(path: string, args: string[]) {
         return err('EXEC', 'Is the token valid?');
     }
 }
-async function reply(id: any, msg: string, mid: number) {
-    LogManager.Debug('\x1b[43m RPLY \x1b[42m ' + id + ' \x1b[0m ' + msg );
-    log('RPLY', 'INFO  ', id + ' | ' + msg);
-    let { message_id } = await bot.sendMessage(id, msg, { parse_mode: 'Markdown', reply_to_message_id: mid });
-    return message_id;
-}
 function fwrd(id: any, src: any, msgid: number) {
     LogManager.Debug('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
     log('FWRD', 'INFO  ', id + ' | ' + src + "/" + msgid);
@@ -384,24 +386,27 @@ async function maiRank(msg: Message): Promise<void>
         msg.reply("```\n" + result + "\n```");
     }
 }
-bot.onText(/^\/kupdate/, function (msg) {
-    if (msg.from?.id == 1613650110) {
+function maiUpdate(msg: Message): void
+{
+    let userId = msg.From.id;
+    if (userId == 1613650110) {
         let resp = '```Result\n' + exec('git', ['pull']) + '```';
-        reply(msg.chat.id, resp, msg.message_id)
+        msg.reply(resp)
     } else {
-        reply(msg.chat.id, 'Premission denied.', msg.message_id);
+        msg.reply("Premission denied.");
     }
-});
-bot.onText(/^\/karc calc/, function (msg) {
-    let input = msg.text?.split(' ');
+}
+function arcCalc(msg: Message): void
+{
+    let input = msg.Command?.Content;
     let err = '```Usage\n/karc calc <lvl> <score>\n\nExamples:\n/karc calc 11 950\n/karc calc 9.7 9921930```';
     if(!input || !input[3]) {
-        reply(msg.chat.id, err, msg.message_id);
+        msg.reply(err)
     } else {
         try {
-            reply(msg.chat.id, '```Result\n' + arc.arcRtnCalc(parseFloat(input[2]), parseInt(input[3])) + '```', msg.message_id)
+            msg.reply('```Result\n' + arcRtnCalc(parseFloat(input[2]), parseInt(input[3])) + '```');
         } catch {
-            reply(msg.chat.id, err, msg.message_id);
+            msg.reply(err);
         }
     }
-});
+}
