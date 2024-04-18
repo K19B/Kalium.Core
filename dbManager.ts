@@ -1,31 +1,116 @@
 import * as sql from 'sqlite3';
-import { DebugType, LogManager } from './Class';
+import { DebugType, LogManager, User } from './Class';
 import { resolve } from 'path';
+import { stringTag } from 'yaml/util';
+import { File, ISerializer, YamlSerializer } from './File';
 
-export class DatabaseManager
+enum dbType
+{
+    Sql,
+    MogonDB,
+    Unknown
+}
+enum DataType
+{
+    Other,
+    User
+}
+class Data<T> extends YamlSerializer{
+    Type: DataType
+    Object: T
+    constructor(type: DataType,obj: T)
+    {
+        super();
+        this.Type = type;
+        this.Object = obj;
+    }
+}
+export class LocalDB
+{
+    private dbFile: string;
+    private db: Map<string,any[]> = new Map<string,any[]>();
+
+    constructor(filePath: string)
+    {
+        
+        this.dbFile = filePath;
+        if(File.Exists(filePath))
+        {
+            let obj: LocalDB = YamlSerializer.Deserialize<LocalDB>(filePath);
+            this.db = obj.db;
+        }
+    }
+    add<T extends object>(obj: T): boolean
+    {
+        try
+        {
+            let k: string = typeof(obj);
+            if(this.db.has(k))
+            {
+                let array = this.db.get(k) as T[];
+                if(array.includes(obj))
+                    return false;
+                else
+                    array.push(obj);
+            }
+            else
+            {
+                let array: T[] = [obj];
+                this.db.set(k,array);
+            }
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+    remove<T extends object>(obj: T): boolean
+    {
+        try
+        {
+            let k: string = typeof(obj);
+            if(this.db.has(k))
+            {
+                let array = this.db.get(k) as T[];
+                if(array.includes(obj))
+                    array.slice(array.indexOf(obj),1)
+                else
+                    return false;
+            }
+            else
+                return false;
+        }
+        catch
+        {
+        }
+        return false;
+    }
+}
+class SqlDB
 {
     private db: sql.Database;
     private Tables: string[] = [];
-    CurrentTable: string = "";
+    private readonly InitRows:Map<string,string> = new Map<string,string>([ 
+                                                   ["Type","INTEGER"],
+                                                   ["Object","TEXT"]
+                                               ]);
+    private readonly Rows: string[] = ["Type","Object"];
+    Type: dbType
 
     constructor(filePath: string)
     {
         this.db = new sql.Database(filePath);
     }
-    async insert(data: Map<string,string>): Promise<boolean>
+    async insert<T>(table: string,data:Data<T>): Promise<boolean>
     {
-        let rows: string[] = [];
-        let values: string[] = [];
-        data.forEach((v,k) =>{
-            rows.push(k);
-            values.push(`'${v}'`);
-        });
-        let sql: string = `INSERT INTO ${this.CurrentTable} (${rows.join(",")}) VALUES (${values.join(",")})`;
+        let values: string[] = [`${data.Type}`,`${data.Serialize()}`];
+        let sql: string = `INSERT INTO ${table} (${this.Rows.join(",")}) VALUES (${values.join(",")})`;
         return new Promise<boolean>((resolve) =>{
             this.db.run(sql,(err) =>{
                 if(err)
                 {
-                    LogManager.Debug(`Error inserting data to '${this.CurrentTable}':\n${err.message}`, DebugType.Error);
+                    LogManager.Debug(`Error inserting data to '${table}':\n${err.message}`, DebugType.Error);
                     resolve(false);
                 }
                 else
@@ -48,27 +133,18 @@ export class DatabaseManager
             });
         });
     }
-    setTable(table: string): boolean
-    {
-        if(this.Tables.includes(table))
-        {
-            this.CurrentTable = table;
-            return true;
-        }
-        return false;
-    }
-    async createTable(types: Map<string,string[]>): Promise<boolean>
+    async createTable(table: string): Promise<boolean>
     {
         let rows:Array<string> = [];
-        types.forEach((v,k) => {
-            rows.push(`${k} ${v.join(" ")}`)
+        this.InitRows.forEach((v,k) => {
+            rows.push(`${k} ${v}`)
         })
-        let sql = `CREATE TABLE IF NOT EXISTS ${this.CurrentTable} (${rows.join(",")})`;
+        let sql = `CREATE TABLE IF NOT EXISTS ${table} (${rows.join(",")})`;
         return new Promise<boolean>((resolve) =>{
             this.db.run(sql,(err) =>{
                 if(err)
                 {
-                    LogManager.Debug(`Error creating table '${this.CurrentTable}':\n${err.message}`, DebugType.Error);
+                    LogManager.Debug(`Error creating table '${table}':\n${err.message}`, DebugType.Error);
                     resolve(false);
                 }
                 else
@@ -76,4 +152,11 @@ export class DatabaseManager
             });
         })
     }
+}
+interface IDatabase 
+{
+    Type: dbType
+    CurrentTable: string;
+
+    insert<T extends object>(key: string,data: T): boolean;
 }

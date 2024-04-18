@@ -14,8 +14,16 @@ export class File
         }
     }
 }
-export class YamlSerializer
+export interface ISerializer
 {
+    Serialize(): string;
+}
+export class YamlSerializer implements ISerializer
+{
+    Serialize(): string
+    {
+        return yaml.stringify(this);
+    }
     static Serialize<T>(obj: T): string
     {
         return yaml.stringify(obj);

@@ -7,7 +7,7 @@ import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
 import { BotConfig } from './BotConfig';
 import { LogManager,Message,Command } from './Class';
-import { DatabaseManager } from './dbManager';
+//import { dbManager } from './dbManager';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
 
 
@@ -17,11 +17,11 @@ const BOTCONFIG :BotConfig|null = BotConfig.Parse('config.yaml');
 const STARTTIME :string = Date();
 const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
 const LOGNAME = 'main.log';
-const DB = new DatabaseManager("KaliumCore.db");
+//const DB = new dbManager("KaliumCore.db");
 const 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
 // Whats this -- LeZi
 
-DB.getTables().then(x => x.forEach(y =>{LogManager.Debug(y)}));
+//DB.getTables().then(x => x.forEach(y =>{LogManager.Debug(y)}));
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
     if (key === 'KINTERNALLOADERQUIT') {
