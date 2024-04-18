@@ -118,6 +118,27 @@ class SqlDB
             });
         })
     }
+    async search<T>(table: string,type: DataType): Promise<Data<T>[]>
+    {
+        let result: Array<Data<T>> = [];
+        let sql: string = `SELECT * FROM ${table} WHERE Type='${type}'`;
+        return new Promise<Data<T>[]>((resolve) =>{
+            this.db.all<any>(sql,(err,rows) =>{
+                if(err)
+                {
+                    LogManager.Debug(`Error inserting data to '${table}':\n${err.message}`, DebugType.Error);
+                    resolve([]);
+                }
+                else
+                {
+                    rows.forEach((row) =>{
+                        result.push(YamlSerializer.Deserialize<Data<T>>(row.Object));
+                    })
+                    resolve(result);
+                }
+            });
+        })
+    }
     async getTables(): Promise<string[]> {
         return new Promise<string[]>((resolve) =>{
             this.db.all<any>(`SELECT name FROM sqlite_master WHERE type='table'`, (err, rows) => {
