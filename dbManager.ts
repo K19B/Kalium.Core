@@ -3,6 +3,7 @@ import { DebugType, LogManager, User } from './Class';
 import { resolve } from 'path';
 import { stringTag } from 'yaml/util';
 import { File, ISerializer, YamlSerializer } from './File';
+import { PrismaClient } from '@prisma/client';
 
 enum dbType
 {
@@ -14,6 +15,14 @@ enum DataType
 {
     Other,
     User
+}
+class PrismaManager
+{
+    private client;
+    constructor()
+    {
+        this.client = new PrismaClient()
+    }
 }
 class Data<T> extends YamlSerializer{
     Type: DataType

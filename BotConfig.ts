@@ -2,24 +2,32 @@ import * as IO from './File';
 import * as fs from 'fs';
 
 export class BotConfig
-    {
-        Token :string | null = null;
-        cVersion :number = 1.0;
+{
+    Token: string | null = null;
+    cVersion: number = 1.0;
+    Database: dbConfig = new dbConfig();
 
-        static Parse(filePath:string): BotConfig|null
+    static Parse(filePath:string): BotConfig|null
+    {
+        try
         {
-            try
-            {
-                if(!IO.File.Exists(filePath))
-                    throw new Error("Config file not found.");
+            if(!IO.File.Exists(filePath))
+                throw new Error("Config file not found.");
     
-                let content = fs.readFileSync(filePath, 'utf8');
+            let content = fs.readFileSync(filePath, 'utf8');
                 
-                return IO.YamlSerializer.Deserialize(content);
-            }
-            catch
-            {
-                return null;
-            }
+            return IO.YamlSerializer.Deserialize(content);
+        }
+        catch
+        {
+            return null;
         }
     }
+}
+export class dbConfig
+{
+    Username: string = "";
+    Password: string = "";
+    Address: string = "";
+    db: string = "";
+}

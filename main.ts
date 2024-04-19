@@ -7,7 +7,7 @@ import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
 import { BotConfig } from './BotConfig';
 import { LogManager,Message,Command } from './Class';
-//import { dbManager } from './dbManager';
+import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
 
 
@@ -17,11 +17,16 @@ const BOTCONFIG :BotConfig|null = BotConfig.Parse('config.yaml');
 const STARTTIME :string = Date();
 const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
 const LOGNAME = 'main.log';
-//const DB = new dbManager("KaliumCore.db");
+const DB = new PrismaClient({
+    datasources: {
+      db: {
+        url: `postgresql://${BOTCONFIG?.Database.Username}:${BOTCONFIG?.Database.Password}@${BOTCONFIG?.Database.Address}/${BOTCONFIG?.Database.db}`,
+      },
+    },
+});
 const 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
-// Whats this -- LeZi
 
-//DB.getTables().then(x => x.forEach(y =>{LogManager.Debug(y)}));
+// Whats this -- LeZi
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
     if (key === 'KINTERNALLOADERQUIT') {
@@ -54,10 +59,12 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
     if(msg == undefined)
         return;
     LogManager.Debug("Received message:\n"+
-                     "From: " + msg.From.id + "\n" +
+                     "From: " + msg.From.Id + "\n" +
                      "Chat: " + msg.Chat.id + "\n" +
                      "Content: " + msg.Text ?? "EMPTY"
     );
+    msg.From.save(DB);
+    // 引用检查
     if(msg.Command == undefined)
         return;
     if(msg.isGroup())
@@ -69,7 +76,7 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
     }
 
     LogManager.Debug("User Request:\n"+
-                     "From: " + msg.From.id + "\n" +
+                     "From: " + msg.From.Id + "\n" +
                      "Chat: " + msg.Chat.id + "\n" +
                      "Prefix: " + msg.Command.Prefix + "\n" +
                      "Params: " + msg.Command.Content.join(" ")
@@ -127,20 +134,20 @@ function commandHandle(msg: Message): void
 }
 function getUserInfo(msg: Message): void
 {
-    let userId = msg.From.id;
+    let userId = msg.From.Id;
     let resp = 'Kalium User Info\n```\nID: ' + userId +
                '\n```' + Date();
     msg.reply(resp);
 }
 function checkAlive(msg: Message): void
 {
-    let userId = msg.From.id;
+    let userId = msg.From.Id;
     let resp = 'Kalium is alive.\nServer time: ' + Date();
     msg.reply(resp);
 }
 function getBotStatus(msg: Message): void
 {
-    let userId = msg.From.id;
+    let userId = msg.From.Id;
     let resp = 'Kalium Bot v' + VER + ' Status\n' +
                 '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
                 + Date();
@@ -148,7 +155,7 @@ function getBotStatus(msg: Message): void
 }
 function wolHandle(msg: Message): void
 {
-    let userId = msg.From.id; 
+    let userId = msg.From.Id; 
     if(userId == 1613650110)
     {
         let resp = '`' + exec('wakeonlan', ['08:bf:b8:43:30:15']) + '`';
@@ -258,7 +265,7 @@ async function maiRank(msg: Message): Promise<void>
 }
 function maiUpdate(msg: Message): void
 {
-    let userId = msg.From.id;
+    let userId = msg.From.Id;
     if (userId == 1613650110) {
         let resp = '```Result\n' + exec('git', ['pull']) + '```';
         msg.reply(resp)

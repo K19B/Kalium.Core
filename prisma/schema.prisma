@@ -9,6 +9,34 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.db"
+  provider = "postgresql"
+  url      = "postgresql://FUCK DATABASE!!!"
+}
+enum MaiServer {
+    JP
+    Intl
+    CN
+}
+enum Permission {
+    Unknown
+    Ban
+    Command
+    Advanced
+    Admin
+    Root
+}
+model MaiAccount{
+    Id Int @unique
+    Server MaiServer
+    MaiUserId BigInt
+    MaiPassword String
+    MaiToken String
+    MaiFCode String
+} 
+model User {
+    Id Int @unique
+    Username String
+    Firstname String
+    Lastname String
+    Level Permission
 }

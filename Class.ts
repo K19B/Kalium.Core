@@ -1,5 +1,6 @@
 import nodeBot, { Audio, Document, ParseMode, PhotoSize } from 'node-telegram-bot-api';
 import * as color from './lib/color';
+import { $Enums, PrismaClient } from '@prisma/client';
 
 export enum DebugType
 {
@@ -16,6 +17,12 @@ export enum Permission
     Advanced,
     Admin,
     Root = 999
+}
+export enum MaiServer
+{
+    JP,
+    Intl,
+    CN
 }
 export class LogManager
 {
@@ -40,7 +47,7 @@ export class LogManager
 }
 export class Message{
     Id: number
-    From: nodeBot.User
+    From: User
     Chat: nodeBot.Chat
     Text: string|undefined
     Audio: Audio|undefined
@@ -52,7 +59,7 @@ export class Message{
     constructor(id: number,from: nodeBot.User,chat: nodeBot.Chat,command: Command|undefined)
     {
         this.Id = id;
-        this.From = from;
+        this.From = User.parse(from)!;
         this.Chat = chat;
         this.Command = command;
         if(command !== undefined)
@@ -131,7 +138,7 @@ export class Message{
         
         if(this.Client != undefined)
             return true;
-        else if((await (this.Client! as nodeBot).getMe()).id === this.From.id)
+        else if((await (this.Client! as nodeBot).getMe()).id === this.From.Id)
             return true;
         return false;
     }
@@ -146,6 +153,127 @@ export class Command{
         this.Content = content;
     }
 }
+export class MaiAccount
+{
+    Id: number
+    Server: MaiServer
+    MaiUserId: bigint
+    MaiPassword: string
+    MaiToken: string
+    MaiFCode: string
+
+    constructor(id: number,server: MaiServer){
+        this.Id = id;
+        this.Server = server;
+        this.MaiUserId = -1n;
+        this.MaiPassword = "";
+        this.MaiToken = "";
+        this.MaiFCode = "";
+    }
+    async save(db: PrismaClient): Promise<void> {
+        let data = this.makeData();
+        let _ = ["JP","Intl","CN"];
+        if(data == undefined)
+            return;
+        if(await MaiAccount.search(db,this.Id,this.Server) != undefined)
+        {
+            await db.maiAccount.update({
+                where: {
+                    Id: this.Id,
+                    Server : _[this.Server] as $Enums.MaiServer
+                },
+                data: data
+            });
+        }
+        else
+            await db.maiAccount.create({data: data});
+    }
+    makeData(): ({
+        Id: number
+        Server: $Enums.MaiServer
+        MaiUserId: bigint
+        MaiPassword: string
+        MaiToken: string
+        MaiFCode: string})|undefined
+    {
+        try
+        {
+            
+            return {
+                Id: this.Id,
+                Server: this.Server == MaiServer.CN ? $Enums.MaiServer.CN :
+                        this.Server == MaiServer.Intl ? $Enums.MaiServer.Intl :
+                        this.Server == MaiServer.JP ? $Enums.MaiServer.JP : $Enums.MaiServer.JP,
+                MaiUserId: this.MaiUserId,
+                MaiPassword: this.MaiPassword,
+                MaiToken: this.MaiToken,
+                MaiFCode: this.MaiFCode
+            };
+        }
+        catch
+        {
+            return undefined;
+        }
+    }
+    static async where(db: PrismaClient,func:(x: MaiAccount) => boolean): Promise<MaiAccount[]> {
+        let result: MaiAccount[] = await this.all(db);
+
+        return result.filter(func);
+    }
+    static async select<T>(db: PrismaClient,func:(x: MaiAccount) => T): Promise<T[]> {
+        let users = await this.all(db);
+
+        return users.map(func);
+    }
+    static async search(db: PrismaClient,id: number,server: MaiServer): Promise<MaiAccount|undefined> {
+        let result: MaiAccount|undefined = undefined;
+        let _ = ["JP","Intl","CN"];
+        let r = await db.maiAccount.findUnique({
+            where: {
+                Id : id,
+                Server : _[server] as $Enums.MaiServer
+            }
+        });
+        if(r != undefined)
+            result = this.convert(r);
+        return result;
+    }
+    static async all(db: PrismaClient): Promise<MaiAccount[]> {
+        let result: MaiAccount[] = [];
+        let r = await db.maiAccount.findMany();
+        r.forEach(y => {
+            let u = this.convert(y);
+            if(u != undefined)
+                result.push(u);                
+        });
+        return result;
+    }
+    static convert(dbUser: {
+        Id: number
+        Server: $Enums.MaiServer
+        MaiUserId: bigint
+        MaiPassword: string
+        MaiToken: string
+        MaiFCode: string}): MaiAccount|undefined {
+        try
+        {
+            let server = dbUser.Server == $Enums.MaiServer.CN ? MaiServer.CN :
+                         dbUser.Server == $Enums.MaiServer.Intl ? MaiServer.Intl :
+                         dbUser.Server == $Enums.MaiServer.JP ? MaiServer.JP : MaiServer.JP;
+            let user = new MaiAccount(dbUser.Id,server);
+            user.MaiFCode = dbUser.MaiFCode;
+            user.MaiPassword = dbUser.MaiPassword;
+            user.MaiToken = dbUser.MaiToken;
+            user.MaiUserId = dbUser.MaiUserId;
+            
+            return user;  
+        }
+        catch
+        {
+            return undefined;
+        }
+    }
+}
 export class User
 {
     Id: number
@@ -153,11 +281,6 @@ export class User
     Firstname: string
     Lastname: string
     Level: Permission = Permission.Command
-
-    MaiUserId: number|undefined
-    MaiPassword: string|undefined
-    MaiToken: string|undefined
-    MaiFCode: string|undefined
 
     constructor(id: number,
                 username: string,
@@ -183,6 +306,105 @@ export class User
     setPermission(targetLevel: Permission): void
     {
         this.Level = targetLevel;
+    }
+    async save(db: PrismaClient): Promise<void> {
+        let data = this.makeData();
+        
+        if(data == undefined)
+            return;
+        if(await User.search(db,this.Id) != undefined)
+        {
+            await db.user.update({
+                where: {
+                    Id: this.Id
+                },
+                data: data
+            });
+        }
+        else
+            await db.user.create({data: data});
+    }
+    makeData(): ({
+        Id: number
+        Username: string
+        Firstname: string
+        Lastname: string
+        Level: $Enums.Permission})|undefined
+    {
+        try
+        {
+            
+            return {
+                Id: this.Id,
+                Username : this.Username,
+                Firstname: this.Firstname,
+                Lastname: this.Lastname,
+                Level: this.Level == Permission.Unknown ? $Enums.Permission.Unknown :
+                       this.Level == Permission.Command ? $Enums.Permission.Command :
+                       this.Level == Permission.Advanced ? $Enums.Permission.Advanced :
+                       this.Level == Permission.Admin ? $Enums.Permission.Admin :
+                       this.Level == Permission.Root ? $Enums.Permission.Root : $Enums.Permission.Unknown
+            };
+        }
+        catch
+        {
+            return undefined;
+        }
+    }
+    static async where(db: PrismaClient,func:(x: User) => boolean): Promise<User[]> {
+        let result: User[] = await this.all(db);
+
+        return result.filter(func);
+    }
+    static async select<T>(db: PrismaClient,func:(x: User) => T): Promise<T[]> {
+        let users = await this.all(db);
+
+        return users.map(func);
+    }
+    static async search(db: PrismaClient,id: number): Promise<User|undefined> {
+        let result: User|undefined = undefined;
+        let r = await db.user.findUnique({
+            where: {
+                Id : id
+            }
+        });
+        if(r != undefined)
+            result = this.convert(r);
+        return result;
+    }
+    static async all(db: PrismaClient): Promise<User[]> {
+        let result: User[] = [];
+        let r = await db.user.findMany()
+        r.forEach(y => {
+            let u = this.convert(y);
+            if(u != undefined)
+                result.push(u);                
+        })
+        return result;
+    }
+    static convert(dbUser: {
+        Id: number
+        Username: string
+        Firstname: string
+        Lastname: string
+        Level: $Enums.Permission}): User|undefined {
+        try
+        {
+            let user = new User(dbUser.Id,
+                dbUser.Username,
+                dbUser.Firstname,
+                dbUser.Lastname);
+            user.Level = dbUser.Level == $Enums.Permission.Unknown ? Permission.Unknown :
+                         dbUser.Level == $Enums.Permission.Command ? Permission.Command :
+                         dbUser.Level == $Enums.Permission.Advanced ? Permission.Advanced :
+                         dbUser.Level == $Enums.Permission.Admin ? Permission.Admin :
+                         dbUser.Level == $Enums.Permission.Root ? Permission.Root : Permission.Unknown;
+            return user;  
+        }
+        catch
+        {
+            return undefined;
+        }
     }
     static parse(u: nodeBot.User|undefined): User|undefined
     {
