@@ -4,10 +4,11 @@ import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import { LogManager,Message,Command } from './lib/Class';
+import { LogManager,Message,Command, User, DebugType, rendering } from './lib/Class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
 import { config } from './lib/config';
+import { exit } from 'process';
 
 
 const VER = process.env.npm_package_version;
@@ -24,7 +25,14 @@ const DB = new PrismaClient({
     },
 });
 const 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
-
+const PERMISSION = new Map([
+    [-1, rendering(color.fBlack,color.bWhite, " Unknown  ")],
+    [0,  rendering(color.fBlack,color.bWhite, " Ban      ")],
+    [1,  rendering(color.fWhite,color.bBlue,  " Common   ")],
+    [2,  rendering(color.fPurple,color.bBlack," Advanced ")],
+    [3,  rendering(color.fYellow,color.bBlack," Admin    ")],
+    [999,rendering(color.fRed,color.bBlack,   " Root    ")],
+]);
 // Whats this -- LeZi
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
@@ -34,19 +42,25 @@ process.stdin.on('data', (data: Buffer) => {
     }
 });
 
-LogManager.Debug('Kalium ' + VER + '\n'
-            + color.core);           
+LogManager.Debug(' Kalium ' + VER);  
+LogManager.Debug("");         
 if(BOTCONFIG == null)
-    throw new Error("Read config failure");
+{
+    LogManager.Debug(" Read config failure",DebugType.Error);
+    exit();
+}
 else if (BOTCONFIG.login.tokenT  == null)
-    throw new Error("Telegram bot token not found",);
-
-LogManager.Debug('All checks passed.');
+{
+    LogManager.Debug(" Telegram bot token not found",DebugType.Error);
+    exit();
+}
+LogManager.Debug(` Config version: v${BOTCONFIG.core.confVer}`);
+LogManager.Debug(' All checks passed.');
 
 let bot = new nodeBot(BOTCONFIG?.login.tokenT as string, {polling: true});
 bot.onText(/[\s\S]*/,messageHandle);
 
-LogManager.Debug('Bot core started.\n');
+LogManager.Debug(' Bot core started.\n');
 
 
 // Receive Messages
@@ -55,13 +69,23 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
     const USERNAME: string = (await bot.getMe()).username as string;
     let Commands = await bot.getMyCommands();
     let msg: Message| undefined = Message.parse(bot,botMsg);
-    if(msg == undefined)
-        return;
-    LogManager.Debug("Received message:\n"+
-                     "From: " + msg.From.Id + "\n" +
-                     "Chat: " + msg.Chat.id + "\n" +
-                     "Content: " + msg.Text ?? "EMPTY"
-    );
+    let recHeader = `${rendering(color.fWhite,color.bBlue," RECV ")}`;
+    let reqHeader = `${rendering(color.fBlack,color.bPurple," UREQ ")}`;
+    if(msg == undefined) return;
+
+    if(msg.isGroup())
+        LogManager.Debug(recHeader + 
+                         `${rendering(color.bGreen,color.fBlack,` C:${msg.Chat.id} U:${msg.From.getName()}(${msg.From.Id}) `)}`  + 
+                         ` ${msg.Text ?? "EMPTY"}`);
+    else
+        LogManager.Debug(recHeader + 
+                         `${rendering(color.bGreen,color.fBlack,` U:${msg.From.getName()}(${msg.From.Id}) `)}`  + 
+                         ` ${msg.Text ?? "EMPTY"}`);
+
+    // 用户信息更新
+    let u = await User.search(DB,msg.From.Id);
+    if(u != undefined)
+        msg.From.Level = u.Level;
     msg.From.save(DB);
     // 引用检查
     if(msg.Command == undefined)
@@ -73,13 +97,10 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
         else if(msg.Command.Prefix.split("@")[1] != (USERNAME as string))
             return
     }
+    LogManager.Debug(reqHeader + 
+                     PERMISSION.get(msg.From.Level)!  + 
+                     ` PF:${msg.Command.Prefix} PR: ${msg.Command.Content.join(" ")}`,DebugType.Debug)
 
-    LogManager.Debug("User Request:\n"+
-                     "From: " + msg.From.Id + "\n" +
-                     "Chat: " + msg.Chat.id + "\n" +
-                     "Prefix: " + msg.Command.Prefix + "\n" +
-                     "Params: " + msg.Command.Content.join(" ")
-    );
     let commands = Commands.map(x => x.command);
     let prefix = msg.Command.Prefix.split("@")[0];
     if(!commands.includes(prefix))    

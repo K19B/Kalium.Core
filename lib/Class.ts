@@ -28,22 +28,27 @@ export class LogManager
 {
     static Debug(content :string,level :DebugType = DebugType.Info) :void
     {
+        
         switch(level)
         {
             case DebugType.Debug:
-                console.log(color.bBlack + color.fWhite + ' DEBUG ' + color.reset + color.core + content);
+                console.log(`${rendering(color.fWhite,color.bBlack," DEBUG ")}${rendering(color.bCyan,color.fBlack,"  CORE  ")}${content}`);
             break;
             case DebugType.Info:
-                console.log(color.core + content);
+                console.log(`${rendering(color.fBlack,color.bWhite," INFO  ")}${rendering(color.bCyan,color.fBlack,"  CORE  ")}${content}`);
             break;
             case DebugType.Warning:
-                console.log(color.bYellow + color.fBlack + ' WARNING ' + color.reset + content);
+                console.log(`${rendering(color.fBlack,color.bYellow," WARNING ")}${content}`);
             break;
             case DebugType.Error:
-                console.log(color.bRed + color.fBlack + ' ERROR ' + color.reset + content);
+                console.log(`${rendering(color.fBlack,color.bRed," ERROR ")}${content}`);
             break;
         }
     }
+}
+export function rendering(f: string,b:string,content: string)
+{
+    return `${b}${f}${content}${color.reset}`;
 }
 export class Message{
     Id: number
