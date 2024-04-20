@@ -1,5 +1,5 @@
 import nodeBot, { Audio, Document, ParseMode, PhotoSize } from 'node-telegram-bot-api';
-import * as color from './lib/color';
+import * as color from './color';
 import { $Enums, PrismaClient } from '@prisma/client';
 
 export enum DebugType

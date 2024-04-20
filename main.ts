@@ -1,26 +1,25 @@
 import * as os from 'os';
-import nodeBot, { Audio, Document, ParseMode, PhotoSize } from 'node-telegram-bot-api';
+import nodeBot from 'node-telegram-bot-api';
 import fs from 'fs';
-import yaml from 'yaml';
 import { execFileSync } from 'child_process';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import { BotConfig } from './BotConfig';
-import { LogManager,Message,Command } from './Class';
+import { LogManager,Message,Command } from './lib/Class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
+import { config } from './lib/config';
 
 
 const VER = process.env.npm_package_version;
 const PLATFORM = os.platform();
-const BOTCONFIG :BotConfig|null = BotConfig.Parse('config.yaml');
+const BOTCONFIG :config|undefined = config.parse('config.yaml');
 const STARTTIME :string = Date();
 const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
 const LOGNAME = 'main.log';
 const DB = new PrismaClient({
     datasources: {
       db: {
-        url: `postgresql://${BOTCONFIG?.Database.Username}:${BOTCONFIG?.Database.Password}@${BOTCONFIG?.Database.Address}/${BOTCONFIG?.Database.db}`,
+        url: `postgresql://${BOTCONFIG?.database.username}:${BOTCONFIG?.database.password}@${BOTCONFIG?.database.host}:${BOTCONFIG?.database.port}/${BOTCONFIG?.database.db}`,
       },
     },
 });
@@ -39,12 +38,12 @@ LogManager.Debug('Kalium ' + VER + '\n'
             + color.core);           
 if(BOTCONFIG == null)
     throw new Error("Read config failure");
-else if (BOTCONFIG.Token  == null)
+else if (BOTCONFIG.login.tokenT  == null)
     throw new Error("Telegram bot token not found",);
 
 LogManager.Debug('All checks passed.');
 
-let bot = new nodeBot(BOTCONFIG?.Token as string, {polling: true});
+let bot = new nodeBot(BOTCONFIG?.login.tokenT as string, {polling: true});
 bot.onText(/[\s\S]*/,messageHandle);
 
 LogManager.Debug('Bot core started.\n');

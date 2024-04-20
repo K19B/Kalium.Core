@@ -33,7 +33,7 @@ export class config {
     login: login = new login();
     database: database = new database();
 
-    static parse(filePath:string): config | null {
+    static parse(filePath:string): config | undefined {
         try {
             if(!file.exist(filePath)) {
                 throw new Error("EK0001: Config not found.");
@@ -41,7 +41,7 @@ export class config {
             let content = fs.readFileSync(filePath, 'utf8');
             return YamlSerializer.deserialize(content);
         } catch {
-            return null;
+            return undefined;
         }
     }
 }
@@ -52,8 +52,13 @@ export class core {
 
 export class login {
     tokenT: string;
+    proxy: string;
 }
 
 export class database {
-    url: string;
+    host: string
+    port: number
+    username: string
+    password: string
+    db: string
 }
