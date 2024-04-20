@@ -1,0 +1,42 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://FUCK DATABASE!!!"
+}
+enum MaiServer {
+    JP
+    Intl
+    CN
+}
+enum Permission {
+    Unknown
+    Ban
+    Command
+    Advanced
+    Admin
+    Root
+}
+model MaiAccount{
+    Id Int @unique
+    Server MaiServer
+    MaiUserId BigInt
+    MaiPassword String
+    MaiToken String
+    MaiFCode String
+} 
+model User {
+    Id Int @unique
+    Username String
+    Firstname String
+    Lastname String
+    Level Permission
+}

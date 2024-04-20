@@ -11,10 +11,13 @@
   "author": "MBRjun <neko@mbr.moe>",
   "license": "Apache-2.0",
   "dependencies": {
+    "@prisma/client": "^5.12.1",
     "@types/node-telegram-bot-api": "^0.61.7",
     "axios": "^1.6.7",
     "canvas": "^2.11.2",
+    "date-fns": "^3.6.0",
     "node-telegram-bot-api": "^0.63.0",
+    "prisma": "^5.12.1",
     "sharp": "^0.33.2",
     "sqlite3": "^5.1.7",
     "yaml": "^2.4.1"
