@@ -1,6 +1,8 @@
 import nodeBot, { Audio, Document, ParseMode, PhotoSize } from 'node-telegram-bot-api';
 import * as color from './color';
 import { $Enums, PrismaClient } from '@prisma/client';
+import { BOTCONFIG, LOGNAME } from '../main';
+import { file } from './config';
 
 export enum DebugType
 {
@@ -28,22 +30,30 @@ export class LogManager
 {
     static Debug(content :string,level :DebugType = DebugType.Info) :void
     {
-        
+        let text:string = "";
         switch(level)
         {
             case DebugType.Debug:
-                console.log(`${rendering(color.fWhite,color.bBlack," DEBUG ")}${rendering(color.bCyan,color.fBlack,"  CORE  ")}${content}`);
+                text = `${rendering(color.fWhite,color.bBlack," DEBUG ")}${rendering(color.bCyan,color.fBlack,"  CORE  ")}${content}`;
             break;
             case DebugType.Info:
-                console.log(`${rendering(color.fBlack,color.bWhite," INFO  ")}${rendering(color.bCyan,color.fBlack,"  CORE  ")}${content}`);
+                text = `${rendering(color.fBlack,color.bWhite," INFO  ")}${rendering(color.bCyan,color.fBlack,"  CORE  ")}${content}`;
             break;
             case DebugType.Warning:
-                console.log(`${rendering(color.fBlack,color.bYellow," WARNING ")}${content}`);
+                text = `${rendering(color.fBlack,color.bYellow," WARNING ")}${content}`;
             break;
             case DebugType.Error:
-                console.log(`${rendering(color.fBlack,color.bRed," ERROR ")}${content}`);
+                text = `${rendering(color.fBlack,color.bRed," ERROR ")}${content}`;
             break;
         }
+        if(level >= BOTCONFIG?.core.debugLevel!)
+            console.log(text);
+
+        if( BOTCONFIG?.core.logPath != (undefined || "") && 
+            !file.appendText(`${BOTCONFIG?.core.logPath}/${LOGNAME}`,`${text}\n`))
+            console.log(`${rendering(color.fBlack,color.bRed," ERROR ")} Writing log to file failure`);
+
+
     }
 }
 export function rendering(f: string,b:string,content: string)

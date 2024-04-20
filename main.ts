@@ -8,15 +8,16 @@ import { LogManager,Message,Command, User, DebugType, rendering } from './lib/Cl
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
 import { config } from './lib/config';
+import { format } from 'date-fns';
 import { exit } from 'process';
 
 
 const VER = process.env.npm_package_version;
 const PLATFORM = os.platform();
-const BOTCONFIG :config|undefined = config.parse('config.yaml');
+export const BOTCONFIG :config|undefined = config.parse('config.yaml');
 const STARTTIME :string = Date();
 const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
-const LOGNAME = 'main.log';
+export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
 const DB = new PrismaClient({
     datasources: {
       db: {
@@ -33,6 +34,7 @@ const PERMISSION = new Map([
     [3,  rendering(color.fYellow,color.bBlack," Admin    ")],
     [999,rendering(color.fRed,color.bBlack,   " Root    ")],
 ]);
+
 // Whats this -- LeZi
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
