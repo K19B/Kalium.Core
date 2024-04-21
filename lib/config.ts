@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import yaml from 'yaml';
-import { DebugType } from './Class';
+import { DebugType } from './class';
 
 export class file {
     static exist(filePath: string): boolean {

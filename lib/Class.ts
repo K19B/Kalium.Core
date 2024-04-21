@@ -4,123 +4,158 @@ import { $Enums, PrismaClient } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
 import { file } from './config';
 
-export enum DebugType
-{
-    Debug,
-    Info,
-    Warning,
-    Error
+export enum logLevel {
+    slient = -10,
+    fatal,
+    error,
+    warn = -1,
+    info,
+    debug
 }
-export enum Permission
+export enum permission
 {
-    Unknown = -1,
-    Ban,
-    Command,
-    Advanced,
-    Admin,
-    Root = 999
+    disabled = -1,
+    default,
+    whiteListed,
+    admin,
+    owner = 19
 }
-export enum MaiServer
+export enum regMaiServer
 {
     JP,
     Intl,
     CN
 }
-export class LogManager
+export enum maiLoginType
 {
-    static Debug(content :string,level :DebugType = DebugType.Info) :void
-    {
-        let text:string = "";
-        switch(level)
-        {
-            case DebugType.Debug:
-                text = `${rendering(color.fWhite,color.bBlack," DEBUG ")}${rendering(color.bCyan,color.fBlack,"  CORE  ")}${content}`;
+    sega,
+    netId,
+    friend
+}
+
+export class logger {
+    static debug(content: string, level: logLevel = logLevel.debug) {
+        let text: string | undefined;
+        switch(level) {
+            case logLevel.debug:
+                text = rendering(color.fWhite,color.bBlack," DBUG ") + rendering(color.bCyan,color.fBlack,"  CORE  ") + content;
             break;
-            case DebugType.Info:
-                text = `${rendering(color.fBlack,color.bWhite," INFO  ")}${rendering(color.bCyan,color.fBlack,"  CORE  ")}${content}`;
+            case logLevel.info:
+                text = rendering(color.fBlack,color.bWhite," INFO ") + rendering(color.bCyan,color.fBlack,"  CORE  ") + content;
             break;
-            case DebugType.Warning:
-                text = `${rendering(color.fBlack,color.bYellow," WARNING ")}${content}`;
+            case logLevel.warn:
+                text = rendering(color.fBlack,color.bYellow," WARN ") + content;
             break;
-            case DebugType.Error:
-                text = `${rendering(color.fBlack,color.bRed," ERROR ")}${content}`;
+            case logLevel.error:
+                text = rendering(color.fBlack,color.bRed," ERRO ") + content;
+            break;
+            case logLevel.fatal:
+                text = rendering(color.fBlack,color.bRed," FTAL ") + content;
             break;
         }
-        if(level >= BOTCONFIG?.core.debugLevel!)
-            console.log(text);
-
-        if( BOTCONFIG?.core.logPath != (undefined || "") && 
-            !file.appendText(`${BOTCONFIG?.core.logPath}/${LOGNAME}`,`${text}\n`))
-            console.log(`${rendering(color.fBlack,color.bRed," ERROR ")} Writing log to file failure`);
-
-
+        if (text) {
+            if (level >= BOTCONFIG?.core.logLevel!) {
+                console.log(text);
+            }
+            if
+            (
+                !BOTCONFIG?.core.logPath // logPath defined
+                && !file.appendText(`${BOTCONFIG?.core.logPath}/${LOGNAME}`,`${text}\n`) // write log fail
+            )
+            {
+                console.log(`${rendering(color.fBlack,color.bRed," ERRO ")} Failed writing log to file.`);
+            }
+        }
     }
 }
-export function rendering(f: string,b:string,content: string)
+export function rendering(f: string, b: string, content: string)
 {
     return `${b}${f}${content}${color.reset}`;
 }
-export class Message{
-    Id: number
-    From: User
-    Chat: nodeBot.Chat
-    Text: string|undefined
-    Audio: Audio|undefined
-    Document: Document|undefined
-    Photo: PhotoSize[]|undefined
-    Command: Command| undefined
-    Client: nodeBot| undefined
+export class message{
+    id: number
+    from: User
+    chat: nodeBot.Chat
+    text: string|undefined
+    audio: Audio|undefined
+    document: Document|undefined
+    photo: PhotoSize[]|undefined
+    command: command| undefined
+    client: nodeBot| undefined
 
     constructor(id: number,from: nodeBot.User,chat: nodeBot.Chat,command: Command|undefined)
     {
-        this.Id = id;
-        this.From = User.parse(from)!;
-        this.Chat = chat;
-        this.Command = command;
+        this.id = id;
+        this.from = User.parse(from)!;
+        this.chat = chat;
+        this.command = command;
         if(command !== undefined)
         {
-            this.Text = "/" + command?.Prefix! + " " + command.Content.join(" ");
+            this.text = "/" + command?.Prefix! + " " + command.Content.join(" ");
         }
         else
-            this.Text = undefined;
+            this.text = undefined;
     }
 
-    /// 判断是否在私有会话
+    // If chat is private,return true
     isPrivate(): boolean 
     {
-        return this.Chat.type === "private";
+        return this.chat.type === "private";
     }
-    /// 判断是否在群聊
+    // If chat is Group or SuperGroup,return true
     isGroup(): boolean
     {
-        return this.Chat.type === ("group" || "supergroup");
+        return this.chat.type === ("group" || "supergroup");
     }
+    // Send a new message and reply
+    // Return: Sended message
     async reply(text: string,
-                parseMode: ParseMode = "Markdown"): Promise<Message| undefined>
+                parseMode: ParseMode = "Markdown"): Promise<message| undefined>
     {
-        let msg = await this.Client!.sendMessage(this.Chat.id, text, { parse_mode: parseMode, reply_to_message_id: this.Id });
+        let msg = await this.client!.sendMessage(this.chat.id, text, { parse_mode: parseMode, reply_to_message_id: this.id });
 
-        return Message.parse(this.Client!,msg);
+        return message.parse(this.client!,msg);
     }
+    // Edit this message.
+    // If you aren't this message sender,this action will make a error
+    // Return: Edited message
     async edit(newText: string,
-               parseMode: ParseMode = "Markdown"): Promise<Message| undefined>
+               parseMode: ParseMode = "Markdown"): Promise<message| undefined>
     {
         if(!(await this.canSend()))
-            return undefined;
-        let msg = await this.Client!.editMessageText(newText,{ parse_mode: parseMode}) as nodeBot.Message
+            throw Error("Cannot edit this message.");
+        let msg = await this.client!.editMessageText(newText,{ parse_mode: parseMode,
+                                                               chat_id: this.chat.id,
+                                                               message_id: this.id }) as nodeBot.Message
 
-        return Message.parse(this.Client!,msg);
+        return message.parse(this.client!,msg);
+    }
+    // Delete this message
+    // If you aren't this message sender or no have corresponding authority,this action will make a error
+    // Return: If success,return true
+    async delete(): Promise<boolean>
+    {
+        return await this.client?.deleteMessage(this.chat.id,this.id)!;
+    }
+    // Send a message without reply
+    // Return: Sended message
+    async send(text: string,
+               parseMode: ParseMode = "Markdown"): Promise<message| undefined> 
+    {
+        let msg = await this.client!.sendMessage(this.chat.id, text, { parse_mode: parseMode })
+
+        return message.parse(this.client!,msg);
     }
     static async send(botClient: nodeBot,
                       chatId:number,
                       text: string,
-                      parseMode: ParseMode = "Markdown"): Promise<Message| undefined> 
+                      parseMode: ParseMode = "Markdown"): Promise<message| undefined> 
     {
         let msg = await botClient.sendMessage(chatId, text, { parse_mode: parseMode })
 
-        return Message.parse(botClient,msg);
+        return message.parse(botClient,msg);
     }
-    static parse(bot: nodeBot,botMsg: nodeBot.Message): Message| undefined
+    static parse(bot: nodeBot,botMsg: nodeBot.Message): message| undefined
     {
         try
         {
@@ -135,12 +170,12 @@ export class Message{
                 command = new Command(prefix,array.slice(1));
             }       
 
-            let msg = new Message(botMsg.message_id,botMsg.from!,botMsg.chat!,command)
-            msg.Text = content;
-            msg.Audio = botMsg.audio;
-            msg.Document = botMsg.document;
-            msg.Photo = botMsg.photo;
-            msg.Client = bot;
+            let msg = new message(botMsg.message_id,botMsg.from!,botMsg.chat!,command)
+            msg.text = content;
+            msg.audio = botMsg.audio;
+            msg.document = botMsg.document;
+            msg.photo = botMsg.photo;
+            msg.client = bot;
             return msg;
         }
         catch
@@ -151,78 +186,75 @@ export class Message{
     private async canSend(): Promise<boolean>
     {
         
-        if(this.Client != undefined)
+        if(this.client != undefined)
             return true;
-        else if((await (this.Client! as nodeBot).getMe()).id === this.From.Id)
+        else if((await (this.client! as nodeBot).getMe()).id === this.from.Id)
             return true;
         return false;
     }
 }
-export class Command{
-    Prefix: string
-    Content: string[]
-
-    constructor(prefix: string,content: string[])
-    {
-        this.Prefix = prefix;
-        this.Content = content;
+export class command{
+    prefix: string
+    content: string[]
+    constructor (prefix: string, content: string[]) {
+        this.prefix = prefix;
+        this.content = content;
     }
 }
-export class MaiAccount
+export class maiAccount
 {
-    Id: number
-    Server: MaiServer
-    MaiUserId: bigint
-    MaiPassword: string
-    MaiToken: string
-    MaiFCode: string
+    id: number
+    server: regMaiServer
+    loginType: maiLoginType
+    maiId: string
+    maiToken: string | undefined
+    maiAlterId: string | undefined
+    maiAlterToken: string | undefined
 
-    constructor(id: number,server: MaiServer){
-        this.Id = id;
-        this.Server = server;
-        this.MaiUserId = -1n;
-        this.MaiPassword = "";
-        this.MaiToken = "";
-        this.MaiFCode = "";
+    constructor(id: number,server: regMaiServer){
+        this.id = id;
+        this.server = server;
+        this.maiId;
+        this.maiToken;
+        this.maiAlterId;
+        this.maiAlterToken;
     }
     async save(db: PrismaClient): Promise<void> {
         let data = this.makeData();
         let _ = ["JP","Intl","CN"];
         if(data == undefined)
             return;
-        if(await MaiAccount.search(db,this.Id,this.Server) != undefined)
-        {
+        if(await maiAccount.search(db,this.id,this.server) != undefined) {
             await db.maiAccount.update({
                 where: {
-                    Id: this.Id,
-                    Server : _[this.Server] as $Enums.MaiServer
+                    Id: this.id,
+                    Server : _[this.server] as $Enums.regMaiServer
                 },
                 data: data
             });
-        }
-        else
+        } else {
             await db.maiAccount.create({data: data});
+        }
     }
     makeData(): ({
-        Id: number
-        Server: $Enums.MaiServer
-        MaiUserId: bigint
-        MaiPassword: string
-        MaiToken: string
-        MaiFCode: string})|undefined
-    {
-        try
-        {
-            
+        id: number
+        server: $Enums.regMaiServer
+        loginType: maiLoginType
+        maiId: string
+        maiToken: string | undefined
+        maiAlterId: string | undefined
+        maiAlterToken: string | undefined
+    }) | undefined {
+        try {
             return {
-                Id: this.Id,
-                Server: this.Server == MaiServer.CN ? $Enums.MaiServer.CN :
-                        this.Server == MaiServer.Intl ? $Enums.MaiServer.Intl :
-                        this.Server == MaiServer.JP ? $Enums.MaiServer.JP : $Enums.MaiServer.JP,
-                MaiUserId: this.MaiUserId,
-                MaiPassword: this.MaiPassword,
-                MaiToken: this.MaiToken,
-                MaiFCode: this.MaiFCode
+                id: this.id,
+                server: this.server == regMaiServer.CN ? $Enums.regMaiServer.CN :
+                        this.server == regMaiServer.Intl ? $Enums.regMaiServer.Intl :
+                        this.server == regMaiServer.JP ? $Enums.regMaiServer.JP : $Enums.regMaiServer.JP,
+                maiId: this.maiId,
+                maiToken: this.maiToken,
+                maiAlterId: this.maiAlterId,
+                maiAlterToken: this.maiAlterToken
             };
         }
         catch
@@ -230,31 +262,31 @@ export class MaiAccount
             return undefined;
         }
     }
-    static async where(db: PrismaClient,func:(x: MaiAccount) => boolean): Promise<MaiAccount[]> {
-        let result: MaiAccount[] = await this.all(db);
+    static async where(db: PrismaClient,func:(x: maiAccount) => boolean): Promise<maiAccount[]> {
+        let result: maiAccount[] = await this.all(db);
 
         return result.filter(func);
     }
-    static async select<T>(db: PrismaClient,func:(x: MaiAccount) => T): Promise<T[]> {
+    static async select<T>(db: PrismaClient,func:(x: maiAccount) => T): Promise<T[]> {
         let users = await this.all(db);
 
         return users.map(func);
     }
-    static async search(db: PrismaClient,id: number,server: MaiServer): Promise<MaiAccount|undefined> {
-        let result: MaiAccount|undefined = undefined;
+    static async search(db: PrismaClient,id: number,server: regMaiServer): Promise<maiAccount|undefined> {
+        let result: maiAccount|undefined = undefined;
         let _ = ["JP","Intl","CN"];
         let r = await db.maiAccount.findUnique({
             where: {
                 Id : id,
-                Server : _[server] as $Enums.MaiServer
+                Server : _[server] as $Enums.regMaiServer
             }
         });
         if(r != undefined)
             result = this.convert(r);
         return result;
     }
-    static async all(db: PrismaClient): Promise<MaiAccount[]> {
-        let result: MaiAccount[] = [];
+    static async all(db: PrismaClient): Promise<maiAccount[]> {
+        let result: maiAccount[] = [];
         let r = await db.maiAccount.findMany();
         r.forEach(y => {
             let u = this.convert(y);
@@ -265,17 +297,17 @@ export class MaiAccount
     }
     static convert(dbUser: {
         Id: number
-        Server: $Enums.MaiServer
+        Server: $Enums.regMaiServer
         MaiUserId: bigint
         MaiPassword: string
         MaiToken: string
-        MaiFCode: string}): MaiAccount|undefined {
+        MaiFCode: string}): maiAccount|undefined {
         try
         {
-            let server = dbUser.Server == $Enums.MaiServer.CN ? MaiServer.CN :
-                         dbUser.Server == $Enums.MaiServer.Intl ? MaiServer.Intl :
-                         dbUser.Server == $Enums.MaiServer.JP ? MaiServer.JP : MaiServer.JP;
-            let user = new MaiAccount(dbUser.Id,server);
+            let server = dbUser.Server == $Enums.regMaiServer.CN ? regMaiServer.CN :
+                         dbUser.Server == $Enums.regMaiServer.Intl ? regMaiServer.Intl :
+                         dbUser.Server == $Enums.regMaiServer.JP ? regMaiServer.JP : regMaiServer.JP;
+            let user = new maiAccount(dbUser.Id,server);
             user.MaiFCode = dbUser.MaiFCode;
             user.MaiPassword = dbUser.MaiPassword;
             user.MaiToken = dbUser.MaiToken;
@@ -295,7 +327,7 @@ export class User
     Username: string
     Firstname: string
     Lastname: string
-    Level: Permission = Permission.Command
+    Level: permission = permission.default
 
     constructor(id: number,
                 username: string,
@@ -312,13 +344,13 @@ export class User
     {
         return this.Firstname + " " + this.Lastname;
     }
-    checkPermission(targetLevel: Permission): boolean
+    checkPermission(targetLevel: permission): boolean
     {
         if(this.Level >= targetLevel)
             return true;
         return false;
     }
-    setPermission(targetLevel: Permission): void
+    setPermission(targetLevel: permission): void
     {
         this.Level = targetLevel;
     }
@@ -354,11 +386,11 @@ export class User
                 Username : this.Username,
                 Firstname: this.Firstname,
                 Lastname: this.Lastname,
-                Level: this.Level == Permission.Unknown ? $Enums.Permission.Unknown :
-                       this.Level == Permission.Command ? $Enums.Permission.Command :
-                       this.Level == Permission.Advanced ? $Enums.Permission.Advanced :
-                       this.Level == Permission.Admin ? $Enums.Permission.Admin :
-                       this.Level == Permission.Root ? $Enums.Permission.Root : $Enums.Permission.Unknown
+                Level: this.Level == permission.disabled ? $Enums.Permission.disabled :
+                       this.Level == permission.default ? $Enums.Permission.default :
+                       this.Level == permission.whiteListed ? $Enums.Permission.whiteListed :
+                       this.Level == permission.admin ? $Enums.Permission.admin :
+                       this.Level == permission.owner ? $Enums.Permission.owner : $Enums.Permission.disabled
             };
         }
         catch
@@ -409,11 +441,11 @@ export class User
                 dbUser.Username,
                 dbUser.Firstname,
                 dbUser.Lastname);
-            user.Level = dbUser.Level == $Enums.Permission.Unknown ? Permission.Unknown :
-                         dbUser.Level == $Enums.Permission.Command ? Permission.Command :
-                         dbUser.Level == $Enums.Permission.Advanced ? Permission.Advanced :
-                         dbUser.Level == $Enums.Permission.Admin ? Permission.Admin :
-                         dbUser.Level == $Enums.Permission.Root ? Permission.Root : Permission.Unknown;
+            user.Level = dbUser.Level == $Enums.Permission.disabled ? permission.disabled :
+                         dbUser.Level == $Enums.Permission.default ? permission.default :
+                         dbUser.Level == $Enums.Permission.whiteListed ? permission.whiteListed :
+                         dbUser.Level == $Enums.Permission.admin ? permission.admin :
+                         dbUser.Level == $Enums.Permission.owner ? permission.owner : Permission.disabled;
             return user;  
         }
         catch
