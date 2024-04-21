@@ -9,34 +9,41 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = "postgresql://FUCK DATABASE!!!"
+  provider = "mysql"
+  url      = env("KALIUM_PRISMA_DATABASE_URL")
 }
-enum MaiServer {
+
+enum regMaiServer {
     JP
     Intl
     CN
 }
-enum Permission {
-    Unknown
-    Ban
-    Command
-    Advanced
-    Admin
-    Root
+enum maiLoginType {
+    sega
+    netId
+    friend
 }
-model MaiAccount{
-    Id Int @unique
-    Server MaiServer
-    MaiUserId BigInt
-    MaiPassword String
-    MaiToken String
-    MaiFCode String
+enum permission {
+    disabled
+    default
+    whiteListed
+    admin
+    owner
+}
+
+model maiAccount{
+    id Int @unique
+    server regMaiServer
+    loginType maiLoginType
+    maiId String
+    maiToken String
+    maiAlterId String
+    maiAlterToken String
 } 
-model User {
+model user {
     Id Int @unique
     Username String
     Firstname String
     Lastname String
-    Level Permission
+    Level permission
 }

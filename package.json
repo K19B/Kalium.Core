@@ -3,6 +3,7 @@
   "version": "0.11.2",
   "description": "Kalium Telegram Bot",
   "main": "main.ts",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node loader.ts",
