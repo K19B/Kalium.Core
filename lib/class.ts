@@ -76,14 +76,14 @@ export class message{
     id: number
     from: User
     chat: nodeBot.Chat
-    text: string|undefined
-    audio: Audio|undefined
-    document: Document|undefined
-    photo: PhotoSize[]|undefined
-    command: command| undefined
-    client: nodeBot| undefined
+    text: string | undefined
+    audio: Audio | undefined
+    document: Document | undefined
+    photo: PhotoSize[] | undefined
+    command: command | undefined
+    client: nodeBot | undefined
 
-    constructor(id: number,from: nodeBot.User,chat: nodeBot.Chat,command: Command|undefined)
+    constructor(id: number, from: nodeBot.User, chat: nodeBot.Chat, command: command | undefined)
     {
         this.id = id;
         this.from = User.parse(from)!;
@@ -91,7 +91,7 @@ export class message{
         this.command = command;
         if(command !== undefined)
         {
-            this.text = "/" + command?.Prefix! + " " + command.Content.join(" ");
+            this.text = "/" + command?.prefix! + " " + command.content.join(" ");
         }
         else
             this.text = undefined;
@@ -149,28 +149,25 @@ export class message{
     static async send(botClient: nodeBot,
                       chatId:number,
                       text: string,
-                      parseMode: ParseMode = "Markdown"): Promise<message| undefined> 
+                      parseMode: ParseMode = "Markdown"): Promise<message | undefined> 
     {
         let msg = await botClient.sendMessage(chatId, text, { parse_mode: parseMode })
 
         return message.parse(botClient,msg);
     }
-    static parse(bot: nodeBot,botMsg: nodeBot.Message): message| undefined
+    static parse(bot: nodeBot,botMsg: nodeBot.Message): message | undefined
     {
-        try
-        {
-            let content: string|undefined = botMsg.text == undefined ?  botMsg.caption ?? "" : botMsg.text;
-            let command: Command|undefined;
-            if(content.length < 2)
-                command = undefined
-            else
-            {
+        try {
+            let content: string | undefined = botMsg.text == undefined ?  botMsg.caption ?? "" : botMsg.text;
+            let pCommand: command | undefined;
+            if(content.length < 2) {
+                pCommand = undefined
+            } else {
                 let array : string[] = content.split(" ").filter(x => x !== "");
                 let prefix: string = array[0].replace("/","");
-                command = new Command(prefix,array.slice(1));
-            }       
-
-            let msg = new message(botMsg.message_id,botMsg.from!,botMsg.chat!,command)
+                pCommand = new command(prefix,array.slice(1));
+            }
+            let msg = new message(botMsg.message_id, botMsg.from!, botMsg.chat!, pCommand)
             msg.text = content;
             msg.audio = botMsg.audio;
             msg.document = botMsg.document;
@@ -178,18 +175,16 @@ export class message{
             msg.client = bot;
             return msg;
         }
-        catch
-        {
+        catch {
             return undefined;
         }
     }
-    private async canSend(): Promise<boolean>
-    {
-        
-        if(this.client != undefined)
+    private async canSend(): Promise<boolean> {
+        if(this.client != undefined) {
             return true;
-        else if((await (this.client! as nodeBot).getMe()).id === this.from.Id)
+        } else if((await (this.client! as nodeBot).getMe()).id === this.from.Id) {
             return true;
+        }
         return false;
     }
 }

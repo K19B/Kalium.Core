@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import yaml from 'yaml';
-import { DebugType } from './class';
+import { logLevel } from './class';
 
 export class file {
     static exist(filePath: string): boolean {
@@ -57,7 +57,7 @@ export class config {
 
 export class core {
     confVer: number;
-    debugLevel: DebugType
+    logLevel: logLevel
     logPath:string;
 }
 
@@ -67,6 +67,7 @@ export class login {
 }
 
 export class database {
+    type: string
     host: string
     port: number
     username: string
