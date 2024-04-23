@@ -386,21 +386,25 @@ export class User
         Username: string
         Firstname: string
         Lastname: string
-        Level: $Enums.Permission})|undefined
+        Level: $Enums.permission})|undefined
     {
         try
         {
-            
+            let permissions: Map<permission,$Enums.permission> = new Map(
+                [
+                    [permission.disabled,$Enums.permission.disabled],
+                    [permission.default,$Enums.permission.default],
+                    [permission.whiteListed,$Enums.permission.whiteListed],
+                    [permission.admin,$Enums.permission.admin],
+                    [permission.owner,$Enums.permission.owner]
+                ]
+            );
             return {
                 Id: this.Id,
                 Username : this.Username,
                 Firstname: this.Firstname,
                 Lastname: this.Lastname,
-                Level: this.Level == permission.disabled ? $Enums.Permission.disabled :
-                       this.Level == permission.default ? $Enums.Permission.default :
-                       this.Level == permission.whiteListed ? $Enums.Permission.whiteListed :
-                       this.Level == permission.admin ? $Enums.Permission.admin :
-                       this.Level == permission.owner ? $Enums.Permission.owner : $Enums.Permission.disabled
+                Level: permissions.get(this.Level)!
             };
         }
         catch
@@ -444,18 +448,23 @@ export class User
         Username: string
         Firstname: string
         Lastname: string
-        Level: $Enums.Permission}): User|undefined {
+        Level: $Enums.permission}): User|undefined {
         try
         {
+            let permissions: Map<$Enums.permission,permission> = new Map(
+                [
+                    [$Enums.permission.disabled,permission.disabled],
+                    [$Enums.permission.default,permission.default],
+                    [$Enums.permission.whiteListed,permission.whiteListed],
+                    [$Enums.permission.admin,permission.admin],
+                    [$Enums.permission.owner,permission.owner]
+                ]
+            );
             let user = new User(dbUser.Id,
                 dbUser.Username,
                 dbUser.Firstname,
                 dbUser.Lastname);
-            user.Level = dbUser.Level == $Enums.Permission.disabled ? permission.disabled :
-                         dbUser.Level == $Enums.Permission.default ? permission.default :
-                         dbUser.Level == $Enums.Permission.whiteListed ? permission.whiteListed :
-                         dbUser.Level == $Enums.Permission.admin ? permission.admin :
-                         dbUser.Level == $Enums.Permission.owner ? permission.owner : Permission.disabled;
+            user.Level = permissions.get(dbUser.Level)!
             return user;  
         }
         catch
