@@ -222,8 +222,8 @@ export class maiAccount
         if(await maiAccount.search(db,this.id,this.server) != undefined) {
             await db.maiAccount.update({
                 where: {
-                    Id: this.id,
-                    Server : _[this.server] as $Enums.regMaiServer
+                    id: this.id,
+                    server: _[this.server] as $Enums.regMaiServer
                 },
                 data: data
             });
@@ -272,8 +272,8 @@ export class maiAccount
         let _ = ["JP","Intl","CN"];
         let r = await db.maiAccount.findUnique({
             where: {
-                Id : id,
-                Server : _[server] as $Enums.regMaiServer
+                id : id,
+                server : _[server] as $Enums.regMaiServer
             }
         });
         if(r != undefined)
