@@ -28,12 +28,11 @@ const DB = new PrismaClient({
 });
 const 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
 const PERMISSION = new Map([
-    [-1, rendering(color.fBlack,color.bWhite, " Unknown  ")],
-    [0,  rendering(color.fBlack,color.bWhite, " Ban      ")],
-    [1,  rendering(color.fWhite,color.bBlue,  " Common   ")],
-    [2,  rendering(color.fPurple,color.bBlack," Advanced ")],
-    [3,  rendering(color.fYellow,color.bBlack," Admin    ")],
-    [999,rendering(color.fRed,color.bBlack,   " Root    ")],
+    [-1, rendering(color.fBlack,color.bWhite, " Disabled ")],
+    [0,  rendering(color.fBlack,color.bWhite, " Default  ")],
+    [1,  rendering(color.fWhite,color.bBlue,  " WListed  ")],
+    [2,  rendering(color.fPurple,color.bBlack,"  Admin   ")],
+    [19,rendering(color.fRed,color.bBlack,    "  Owner   ")],
 ]);
 
 // Whats this -- LeZi
