@@ -292,23 +292,37 @@ export class maiAccount
         return result;
     }
     static convert(dbUser: {
-        Id: number
-        Server: $Enums.regMaiServer
-        MaiUserId: bigint
-        MaiPassword: string
-        MaiToken: string
-        MaiFCode: string}): maiAccount|undefined {
+        id: number
+        server: $Enums.regMaiServer
+        loginType: $Enums.maiLoginType
+        maiId: string
+        maiToken: string
+        maiAlterId: string
+        maiAlterToken: string
+    }): maiAccount|undefined {
         try
         {
-            let server = dbUser.Server == $Enums.regMaiServer.CN ? regMaiServer.CN :
-                         dbUser.Server == $Enums.regMaiServer.Intl ? regMaiServer.Intl :
-                         dbUser.Server == $Enums.regMaiServer.JP ? regMaiServer.JP : regMaiServer.JP;
-            let user = new maiAccount(dbUser.Id,server);
-            user.MaiFCode = dbUser.MaiFCode;
-            user.MaiPassword = dbUser.MaiPassword;
-            user.MaiToken = dbUser.MaiToken;
-            user.MaiUserId = dbUser.MaiUserId;
-            
+            let serverType: Map<$Enums.regMaiServer,regMaiServer> = new Map(
+                [
+                    [$Enums.regMaiServer.JP,regMaiServer.JP],
+                    [$Enums.regMaiServer.Intl,regMaiServer.Intl],
+                    [$Enums.regMaiServer.CN,regMaiServer.CN]
+                ]
+            );
+            let loginType: Map<$Enums.maiLoginType,maiLoginType> = new Map(
+                [
+                    [$Enums.maiLoginType.sega,maiLoginType.sega],
+                    [$Enums.maiLoginType.netId,maiLoginType.netId],
+                    [$Enums.maiLoginType.friend,maiLoginType.friend]
+                ]
+            );
+            let user = new maiAccount(dbUser.id,serverType.get(dbUser.server)!);
+            user.loginType = loginType.get(dbUser.loginType)!;
+            user.maiAlterId = dbUser.maiAlterId;
+            user.maiAlterToken = dbUser.maiAlterToken;
+            user.maiId = dbUser.maiId;
+            user.maiToken = dbUser.maiToken;
+        
             return user;  
         }
         catch
