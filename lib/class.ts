@@ -60,7 +60,7 @@ export class logger {
             if
             (
                 !BOTCONFIG?.core.logPath // logPath defined
-                && !file.appendText(`${BOTCONFIG?.core.logPath}/${LOGNAME}`,`${text}\n`) // write log fail
+                || !file.appendText(`${BOTCONFIG?.core.logPath}/${LOGNAME}`,`${text}\n`) // write log fail
             )
             {
                 console.log(`${rendering(color.fBlack,color.bRed," ERRO ")} Failed writing log to file.`);

@@ -1,3 +1,6 @@
+# v0.12.1
+- fix: writeLog condition
+
 # v0.12.0
 - refactor: TS core
 
