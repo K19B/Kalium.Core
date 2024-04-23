@@ -234,22 +234,23 @@ export class maiAccount
     makeData(): ({
         id: number
         server: $Enums.regMaiServer
-        loginType: maiLoginType
+        loginType: $Enums.maiLoginType
         maiId: string
-        maiToken: string | undefined
-        maiAlterId: string | undefined
-        maiAlterToken: string | undefined
+        maiToken: string
+        maiAlterId: string
+        maiAlterToken: string
     }) | undefined {
+        let serverType: $Enums.regMaiServer[] = [$Enums.regMaiServer.JP,$Enums.regMaiServer.Intl,$Enums.regMaiServer.CN];
+        let loginType: $Enums.maiLoginType[] = [$Enums.maiLoginType.sega,$Enums.maiLoginType.netId,$Enums.maiLoginType.friend];
         try {
             return {
                 id: this.id,
-                server: this.server == regMaiServer.CN ? $Enums.regMaiServer.CN :
-                        this.server == regMaiServer.Intl ? $Enums.regMaiServer.Intl :
-                        this.server == regMaiServer.JP ? $Enums.regMaiServer.JP : $Enums.regMaiServer.JP,
+                server: serverType[this.server],
+                loginType: loginType[this.loginType],
                 maiId: this.maiId,
-                maiToken: this.maiToken,
-                maiAlterId: this.maiAlterId,
-                maiAlterToken: this.maiAlterToken
+                maiToken: this.maiToken ?? "",
+                maiAlterId: this.maiAlterId ?? "",
+                maiAlterToken: this.maiAlterToken ?? ""
             };
         }
         catch
