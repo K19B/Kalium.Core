@@ -57,7 +57,7 @@ export function dbUrl() {
     if (dbPort() != undefined) {
         hasPort = ':' + dbPort()
     }
-    return dbFullType() + '://' + hasUser + hasPassword + hasPort + '/' + dbConfig?.database.db;
+    return dbFullType() + '://' + hasUser + hasPassword + dbConfig?.database.host + hasPort + '/' + dbConfig?.database.db;
 }
 
 export function copyPrisma() {
