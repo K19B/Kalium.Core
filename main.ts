@@ -102,14 +102,6 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
     logger.debug(reqHeader + 
                      PERMISSION.get(msg.from.Level)!  + 
                      ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`,logLevel.debug)
-
-    let commands = Commands.map(x => x.command);
-    let prefix = msg.command.prefix.split("@")[0];
-    if(!commands.includes(prefix))    
-    {
-        logger.debug("Bot unsupport,skip...");
-        return;
-    }
     commandHandle(msg);
 }
 
