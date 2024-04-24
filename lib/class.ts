@@ -333,13 +333,17 @@ export class maiAccount
 }
 export class User
 {
-    id: BigInt
+    id: bigint
     username: string
     firstname: string
     lastname: string
     level: permission = permission.default
+    messageProcessed: number
+    commandProcessed: number
+    registered: Date
+    lastSeen: Date
 
-    constructor(id: BigInt,
+    constructor(id: bigint,
                 username: string,
                 fName: string,
                 lName: string
@@ -382,11 +386,15 @@ export class User
             await db.user.create({data: data});
     }
     makeData(): ({
-        id: BigInt
+        id: bigint
         username: string
         firstname: string
         lastname: string
-        level: $Enums.permission})|undefined
+        level: $Enums.permission
+        messageProcessed: number
+        commandProcessed: number
+        registered: Date
+        lastSeen: Date})|undefined
     {
         try
         {
@@ -404,7 +412,11 @@ export class User
                 username : this.username,
                 firstname: this.firstname,
                 lastname: this.lastname,
-                level: permissions.get(this.level)!
+                level: permissions.get(this.level)!,
+                messageProcessed: this.messageProcessed,
+                commandProcessed: this.commandProcessed,
+                registered: this.registered,
+                lastSeen: this.lastSeen
             };
         }
         catch
@@ -444,11 +456,15 @@ export class User
         return result;
     }
     static convert(dbUser: {
-        id: BigInt
+        id: bigint
         username: string
         firstname: string
         lastname: string
-        level: $Enums.permission}): User|undefined {
+        level: $Enums.permission
+        messageProcessed: number
+        commandProcessed: number
+        registered: Date
+        lastSeen: Date}): User|undefined {
         try
         {
             let permissions: Map<$Enums.permission,permission> = new Map(
@@ -465,6 +481,10 @@ export class User
                 dbUser.firstname,
                 dbUser.lastname);
             user.level = permissions.get(dbUser.level)!
+            user.messageProcessed = dbUser.messageProcessed;
+            user.commandProcessed = dbUser.commandProcessed;
+            user.registered = dbUser.registered;
+            user.lastSeen = dbUser.lastSeen;
             return user;  
         }
         catch
