@@ -28,12 +28,11 @@ const DB = new PrismaClient({
 });
 const 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
 const PERMISSION = new Map([
-    [-1, rendering(color.fBlack,color.bWhite, " Unknown  ")],
-    [0,  rendering(color.fBlack,color.bWhite, " Ban      ")],
-    [1,  rendering(color.fWhite,color.bBlue,  " Common   ")],
-    [2,  rendering(color.fPurple,color.bBlack," Advanced ")],
-    [3,  rendering(color.fYellow,color.bBlack," Admin    ")],
-    [999,rendering(color.fRed,color.bBlack,   " Root    ")],
+    [-1, rendering(color.fBlack,color.bWhite, " Disabled ")],
+    [0,  rendering(color.fBlack,color.bWhite, " Default  ")],
+    [1,  rendering(color.fWhite,color.bBlue,  " WListed  ")],
+    [2,  rendering(color.fPurple,color.bBlack,"  Admin   ")],
+    [19,rendering(color.fRed,color.bBlack,    "  Owner   ")],
 ]);
 
 // Whats this -- LeZi
@@ -78,17 +77,17 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
 
     if(msg.isGroup())
         logger.debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.Id}) `)}`  + 
+                         `${rendering(color.bGreen,color.fBlack,` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
                          ` ${msg.text ?? "EMPTY"}`);
     else
         logger.debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` U:${msg.from.getName()}(${msg.from.Id}) `)}`  + 
+                         `${rendering(color.bGreen,color.fBlack,` U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
                          ` ${msg.text ?? "EMPTY"}`);
 
     // 用户信息更新
-    let u = await User.search(DB,msg.from.Id);
+    let u = await User.search(DB,msg.from.id);
     if(u != undefined)
-        msg.from.Level = u.Level;
+        msg.from.level = u.level;
     msg.from.save(DB);
     // 引用检查
     if(msg.command == undefined)
@@ -101,16 +100,8 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
             return
     }
     logger.debug(reqHeader + 
-                     PERMISSION.get(msg.from.Level)!  + 
+                     PERMISSION.get(msg.from.level)!  + 
                      ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`,logLevel.debug)
-
-    let commands = Commands.map(x => x.command);
-    let prefix = msg.command.prefix.split("@")[0];
-    if(!commands.includes(prefix))    
-    {
-        logger.debug("Bot unsupport,skip...");
-        return;
-    }
     commandHandle(msg);
 }
 
@@ -157,20 +148,20 @@ function commandHandle(msg: message): void
 }
 function getUserInfo(msg: message): void
 {
-    let userId = msg.from.Id;
+    let userId = msg.from.id;
     let resp = 'Kalium User Info\n```\nID: ' + userId +
                '\n```' + Date();
     msg.reply(resp);
 }
 function checkAlive(msg: message): void
 {
-    let userId = msg.from.Id;
+    let userId = msg.from.id;
     let resp = 'Kalium is alive.\nServer time: ' + Date();
     msg.reply(resp);
 }
 function getBotStatus(msg: message): void
 {
-    let userId = msg.from.Id;
+    let userId = msg.from.id;
     let resp = 'Kalium Bot v' + VER + ' Status\n' +
                 '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
                 + Date();
@@ -178,8 +169,8 @@ function getBotStatus(msg: message): void
 }
 function wolHandle(msg: message): void
 {
-    let userId = msg.from.Id; 
-    if(userId == 1613650110)
+    let userId = msg.from.id; 
+    if(userId == BigInt(1613650110))
     {
         let resp = '`' + exec('wakeonlan', ['08:bf:b8:43:30:15']) + '`';
         msg.reply(resp);
@@ -288,8 +279,8 @@ async function maiRank(msg: message): Promise<void>
 }
 function maiUpdate(msg: message): void
 {
-    let userId = msg.from.Id;
-    if (userId == 1613650110) {
+    let userId = msg.from.id;
+    if (userId == BigInt(1613650110)) {
         let resp = '```Result\n' + exec('git', ['pull']) + '```';
         msg.reply(resp)
     } else {

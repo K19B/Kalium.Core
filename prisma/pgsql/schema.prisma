@@ -41,9 +41,13 @@ model maiAccount{
     maiAlterToken String
 } 
 model user {
-    Id Int @unique
-    Username String
-    Firstname String
-    Lastname String
-    Level permission
+    id BigInt @unique
+    username String
+    firstname String
+    lastname String
+    level permission
+    messageProcessed Int
+    commandProcessed Int
+    registered DateTime
+    lastSeen DateTime
 }

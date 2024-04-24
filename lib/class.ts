@@ -182,7 +182,7 @@ export class message{
     private async canSend(): Promise<boolean> {
         if(this.client != undefined) {
             return true;
-        } else if((await (this.client! as nodeBot).getMe()).id === this.from.Id) {
+        } else if((await (this.client! as nodeBot).getMe()).id === Number(this.from.id)) {
             return true;
         }
         return false;
@@ -333,47 +333,51 @@ export class maiAccount
 }
 export class User
 {
-    Id: number
-    Username: string
-    Firstname: string
-    Lastname: string
-    Level: permission = permission.default
+    id: bigint
+    username: string
+    firstname: string
+    lastname: string
+    level: permission = permission.default
+    messageProcessed: number
+    commandProcessed: number
+    registered: Date
+    lastSeen: Date
 
-    constructor(id: number,
+    constructor(id: bigint,
                 username: string,
                 fName: string,
                 lName: string
     )
     {
-        this.Id = id;
-        this.Firstname = fName;
-        this.Lastname = lName;
-        this.Username = username;
+        this.id = id;
+        this.firstname = fName;
+        this.lastname = lName;
+        this.username = username;
     }
     getName(): string
     {
-        return this.Firstname + " " + this.Lastname;
+        return this.firstname + " " + this.lastname;
     }
     checkPermission(targetLevel: permission): boolean
     {
-        if(this.Level >= targetLevel)
+        if(this.level >= targetLevel)
             return true;
         return false;
     }
     setPermission(targetLevel: permission): void
     {
-        this.Level = targetLevel;
+        this.level = targetLevel;
     }
     async save(db: PrismaClient): Promise<void> {
         let data = this.makeData();
         
         if(data == undefined)
             return;
-        if(await User.search(db,this.Id) != undefined)
+        if(await User.search(db,this.id) != undefined)
         {
             await db.user.update({
                 where: {
-                    Id: this.Id
+                    id: this.id as bigint
                 },
                 data: data
             });
@@ -382,11 +386,15 @@ export class User
             await db.user.create({data: data});
     }
     makeData(): ({
-        Id: number
-        Username: string
-        Firstname: string
-        Lastname: string
-        Level: $Enums.permission})|undefined
+        id: bigint
+        username: string
+        firstname: string
+        lastname: string
+        level: $Enums.permission
+        messageProcessed: number
+        commandProcessed: number
+        registered: Date
+        lastSeen: Date})|undefined
     {
         try
         {
@@ -400,11 +408,15 @@ export class User
                 ]
             );
             return {
-                Id: this.Id,
-                Username : this.Username,
-                Firstname: this.Firstname,
-                Lastname: this.Lastname,
-                Level: permissions.get(this.Level)!
+                id: this.id,
+                username : this.username,
+                firstname: this.firstname,
+                lastname: this.lastname,
+                level: permissions.get(this.level)!,
+                messageProcessed: this.messageProcessed,
+                commandProcessed: this.commandProcessed,
+                registered: this.registered,
+                lastSeen: this.lastSeen
             };
         }
         catch
@@ -422,11 +434,11 @@ export class User
 
         return users.map(func);
     }
-    static async search(db: PrismaClient,id: number): Promise<User|undefined> {
+    static async search(db: PrismaClient,id: BigInt): Promise<User|undefined> {
         let result: User|undefined = undefined;
         let r = await db.user.findUnique({
             where: {
-                Id : id
+                id : id as bigint
             }
         });
         if(r != undefined)
@@ -444,11 +456,15 @@ export class User
         return result;
     }
     static convert(dbUser: {
-        Id: number
-        Username: string
-        Firstname: string
-        Lastname: string
-        Level: $Enums.permission}): User|undefined {
+        id: bigint
+        username: string
+        firstname: string
+        lastname: string
+        level: $Enums.permission
+        messageProcessed: number
+        commandProcessed: number
+        registered: Date
+        lastSeen: Date}): User|undefined {
         try
         {
             let permissions: Map<$Enums.permission,permission> = new Map(
@@ -460,11 +476,15 @@ export class User
                     [$Enums.permission.owner,permission.owner]
                 ]
             );
-            let user = new User(dbUser.Id,
-                dbUser.Username,
-                dbUser.Firstname,
-                dbUser.Lastname);
-            user.Level = permissions.get(dbUser.Level)!
+            let user = new User(dbUser.id,
+                dbUser.username,
+                dbUser.firstname,
+                dbUser.lastname);
+            user.level = permissions.get(dbUser.level)!
+            user.messageProcessed = dbUser.messageProcessed;
+            user.commandProcessed = dbUser.commandProcessed;
+            user.registered = dbUser.registered;
+            user.lastSeen = dbUser.lastSeen;
             return user;  
         }
         catch
@@ -481,6 +501,6 @@ export class User
         let lName = u.last_name ?? "";
         let username = u.username ?? "";
 
-        return new User(id,username,fName,lName);
+        return new User(BigInt(id), username, fName, lName);
     }
 }
