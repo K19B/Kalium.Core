@@ -5,7 +5,7 @@ import * as color from './lib/color';
 console.log(color.loader + 'Preparing core...');
 
 function loader() {
-    return spawn('pnpm', ['run', 'core']);
+    return spawn('node', ['./dist/main']);
 }
 
 function sleep(ms: number) {

@@ -4,12 +4,13 @@ import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import { LogManager,Message,Command, User, DebugType, rendering } from './lib/Class';
+import { logger, message, command, User, logLevel, rendering } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
 import { config } from './lib/config';
 import { format } from 'date-fns';
 import { exit } from 'process';
+import { dbUrl } from './lib/prisma';
 
 
 const VER = process.env.npm_package_version;
@@ -21,48 +22,47 @@ export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
 const DB = new PrismaClient({
     datasources: {
       db: {
-        url: `postgresql://${BOTCONFIG?.database.username}:${BOTCONFIG?.database.password}@${BOTCONFIG?.database.host}:${BOTCONFIG?.database.port}/${BOTCONFIG?.database.db}`,
+        url: dbUrl(),
       },
     },
 });
 const 白丝Id = '3129e55c7db031e473ce3256b8f6806a8513d536386d30ba2fa0c28214c8d7e4b3385051dee90d5a716c6e4215600be0be3169f7d3ecfb357b3e2b6cb8c73b68H6MMqPZtVOOjD%2FxkMZMLmnqd6sH9jVYK1VPcCJTKnsU%3D';
 const PERMISSION = new Map([
-    [-1, rendering(color.fBlack,color.bWhite, " Unknown  ")],
-    [0,  rendering(color.fBlack,color.bWhite, " Ban      ")],
-    [1,  rendering(color.fWhite,color.bBlue,  " Common   ")],
-    [2,  rendering(color.fPurple,color.bBlack," Advanced ")],
-    [3,  rendering(color.fYellow,color.bBlack," Admin    ")],
-    [999,rendering(color.fRed,color.bBlack,   " Root    ")],
+    [-1, rendering(color.fBlack,color.bWhite, " Disabled ")],
+    [0,  rendering(color.fBlack,color.bWhite, " Default  ")],
+    [1,  rendering(color.fWhite,color.bBlue,  " WListed  ")],
+    [2,  rendering(color.fPurple,color.bBlack,"  Admin   ")],
+    [19,rendering(color.fRed,color.bBlack,    "  Owner   ")],
 ]);
 
 // Whats this -- LeZi
 process.stdin.on('data', (data: Buffer) => {
     let key = data.toString().trim();
     if (key === 'KINTERNALLOADERQUIT') {
-        LogManager.Debug('Core exiting... (Rcvd \'KINTERNALLOADERQUIT\' command)');
+        logger.debug('Core exiting... (Rcvd \'KINTERNALLOADERQUIT\' command)');
         process.exit();
     }
 });
 
-LogManager.Debug(' Kalium ' + VER);  
-LogManager.Debug("");         
+logger.debug(' Kalium ' + VER);  
+logger.debug("");         
 if(BOTCONFIG == null)
 {
-    LogManager.Debug(" Read config failure",DebugType.Error);
+    logger.debug(" Read config failure",logLevel.error);
     exit();
 }
 else if (BOTCONFIG.login.tokenT  == null)
 {
-    LogManager.Debug(" Telegram bot token not found",DebugType.Error);
+    logger.debug(" Telegram bot token not found",logLevel.error);
     exit();
 }
-LogManager.Debug(` Config version: v${BOTCONFIG.core.confVer}`);
-LogManager.Debug(' All checks passed.');
+logger.debug(` Config version: v${BOTCONFIG.core.confVer}`);
+logger.debug(' All checks passed.');
 
 let bot = new nodeBot(BOTCONFIG?.login.tokenT as string, {polling: true});
 bot.onText(/[\s\S]*/,messageHandle);
 
-LogManager.Debug(' Bot core started.\n');
+logger.debug(' Bot core started.\n');
 
 
 // Receive Messages
@@ -70,54 +70,46 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
 {
     const USERNAME: string = (await bot.getMe()).username as string;
     let Commands = await bot.getMyCommands();
-    let msg: Message| undefined = Message.parse(bot,botMsg);
+    let msg: message | undefined = message.parse(bot,botMsg);
     let recHeader = `${rendering(color.fWhite,color.bBlue," RECV ")}`;
     let reqHeader = `${rendering(color.fBlack,color.bPurple," UREQ ")}`;
     if(msg == undefined) return;
 
     if(msg.isGroup())
-        LogManager.Debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` C:${msg.Chat.id} U:${msg.From.getName()}(${msg.From.Id}) `)}`  + 
-                         ` ${msg.Text ?? "EMPTY"}`);
+        logger.debug(recHeader + 
+                         `${rendering(color.bGreen,color.fBlack,` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
+                         ` ${msg.text ?? "EMPTY"}`);
     else
-        LogManager.Debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` U:${msg.From.getName()}(${msg.From.Id}) `)}`  + 
-                         ` ${msg.Text ?? "EMPTY"}`);
+        logger.debug(recHeader + 
+                         `${rendering(color.bGreen,color.fBlack,` U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
+                         ` ${msg.text ?? "EMPTY"}`);
 
     // 用户信息更新
-    let u = await User.search(DB,msg.From.Id);
+    let u = await User.search(DB,msg.from.id);
     if(u != undefined)
-        msg.From.Level = u.Level;
-    msg.From.save(DB);
+        msg.from.level = u.level;
+    msg.from.save(DB);
     // 引用检查
-    if(msg.Command == undefined)
+    if(msg.command == undefined)
         return;
     if(msg.isGroup())
     {
-        if(!msg.Command.Prefix.includes(USERNAME as string))
+        if(!msg.command.prefix.includes(USERNAME as string))
             return;
-        else if(msg.Command.Prefix.split("@")[1] != (USERNAME as string))
+        else if(msg.command.prefix.split("@")[1] != (USERNAME as string))
             return
     }
-    LogManager.Debug(reqHeader + 
-                     PERMISSION.get(msg.From.Level)!  + 
-                     ` PF:${msg.Command.Prefix} PR: ${msg.Command.Content.join(" ")}`,DebugType.Debug)
-
-    let commands = Commands.map(x => x.command);
-    let prefix = msg.Command.Prefix.split("@")[0];
-    if(!commands.includes(prefix))    
-    {
-        LogManager.Debug("Bot unsupport,skip...");
-        return;
-    }
+    logger.debug(reqHeader + 
+                     PERMISSION.get(msg.from.level)!  + 
+                     ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`,logLevel.debug)
     commandHandle(msg);
 }
 
 // Bot Commands
-function commandHandle(msg: Message): void
+function commandHandle(msg: message): void
 {
-    let command = msg.Command as Command;
-    switch(command.Prefix)
+    let command = msg.command as command;
+    switch(command.prefix)
     {
         case "userinfo":
             getUserInfo(msg);
@@ -154,31 +146,31 @@ function commandHandle(msg: Message): void
         break;
     }
 }
-function getUserInfo(msg: Message): void
+function getUserInfo(msg: message): void
 {
-    let userId = msg.From.Id;
+    let userId = msg.from.id;
     let resp = 'Kalium User Info\n```\nID: ' + userId +
                '\n```' + Date();
     msg.reply(resp);
 }
-function checkAlive(msg: Message): void
+function checkAlive(msg: message): void
 {
-    let userId = msg.From.Id;
+    let userId = msg.from.id;
     let resp = 'Kalium is alive.\nServer time: ' + Date();
     msg.reply(resp);
 }
-function getBotStatus(msg: Message): void
+function getBotStatus(msg: message): void
 {
-    let userId = msg.From.Id;
+    let userId = msg.from.id;
     let resp = 'Kalium Bot v' + VER + ' Status\n' +
                 '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
                 + Date();
     msg.reply(resp);
 }
-function wolHandle(msg: Message): void
+function wolHandle(msg: message): void
 {
-    let userId = msg.From.Id; 
-    if(userId == 1613650110)
+    let userId = msg.from.id; 
+    if(userId == BigInt(1613650110))
     {
         let resp = '`' + exec('wakeonlan', ['08:bf:b8:43:30:15']) + '`';
         msg.reply(resp);
@@ -186,13 +178,13 @@ function wolHandle(msg: Message): void
     else
         msg.reply("Permission Denied");
 }
-function fuckZzy(msg: Message): void
+function fuckZzy(msg: message): void
 {
-    fwrd(msg.Chat.id, "@MBRFans", 374741);
+    fwrd(msg.chat.id, "@MBRFans", 374741);
 }
-function netQuery(msg: Message): void
+function netQuery(msg: message): void
 {
-    let domain = msg.Command?.Content.join(" ") as string;
+    let domain = msg.command?.content.join(" ") as string;
     var checkFqdn = 'FQDN not detected\n';
     var checkUrl = 'URL not detected';
     // Part I: Check FQDN
@@ -227,7 +219,7 @@ function log(type: string, lvl: string, data: string) { // Deprecated, will remo
     fs.writeFile(LOGNAME, logdata, { flag: 'a+' }, err => {});
 }
 function exec(path: string, args: string[]) {
-    LogManager.Debug('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
+    logger.debug('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
     log('EXEC', 'INFO  ', path + ' ARGS: ' + args )
     try {
         let stdout = execFileSync(path, args).toString();
@@ -237,7 +229,7 @@ function exec(path: string, args: string[]) {
     }
 }
 function secureExec(path: string, args: string[]) {
-    LogManager.Debug('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
+    logger.debug('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
     log('EXEC', 'INFO  ', path + ' ARGS: ' + args )
     try {
         let stdout = execFileSync(path, args).toString();
@@ -247,7 +239,7 @@ function secureExec(path: string, args: string[]) {
     }
 }
 function fwrd(id: any, src: any, msgid: number) {
-    LogManager.Debug('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
+    logger.debug('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
     log('FWRD', 'INFO  ', id + ' | ' + src + "/" + msgid);
     bot.forwardMessage(id, src, msgid, );
 }
@@ -265,17 +257,17 @@ function err(from: string, stderr: string) {
 let maisegaId: undefined | string;
 let maiPasswd: undefined | string;
 
-function maiSetId(msg: Message): void
+function maiSetId(msg: message): void
 {
-    maisegaId = msg.Command?.Content[1];
+    maisegaId = msg.command?.content[1];
     msg.reply("OK");
 }
-function maiSetP(msg: Message): void
+function maiSetP(msg: message): void
 {
-    maiPasswd = msg.Command?.Content[1];
+    maiPasswd = msg.command?.content[1];
     msg.reply("OK");
 }
-async function maiRank(msg: Message): Promise<void>
+async function maiRank(msg: message): Promise<void>
 {
     if(!maisegaId || !maiPasswd) {
         let result = "你还没有设置 DX Net 登录凭据哇！\n使用 /setid 和 /setp 登录！"
@@ -285,19 +277,19 @@ async function maiRank(msg: Message): Promise<void>
         msg.reply("```\n" + result + "\n```");
     }
 }
-function maiUpdate(msg: Message): void
+function maiUpdate(msg: message): void
 {
-    let userId = msg.From.Id;
-    if (userId == 1613650110) {
+    let userId = msg.from.id;
+    if (userId == BigInt(1613650110)) {
         let resp = '```Result\n' + exec('git', ['pull']) + '```';
         msg.reply(resp)
     } else {
         msg.reply("Premission denied.");
     }
 }
-function arcCalc(msg: Message): void
+function arcCalc(msg: message): void
 {
-    let input = msg.Command?.Content;
+    let input = msg.command?.content;
     let err = '```Usage\n/karc calc <lvl> <score>\n\nExamples:\n/karc calc 11 950\n/karc calc 9.7 9921930```';
     if(!input || !input[3]) {
         msg.reply(err)

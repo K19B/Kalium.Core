@@ -8,3 +8,12 @@ pnpm-lock.yaml
 node_modules/*
 KaliumCore.db
 logs/
+# Prisma
+prisma/*
+!prisma/mysql/
+!prisma/pgsql/
+# env
+.env
+# Prod
+dist/
+/.vs
