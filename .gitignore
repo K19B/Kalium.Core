@@ -16,3 +16,4 @@ prisma/*
 .env
 # Prod
 dist/
+/.vs
