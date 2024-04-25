@@ -84,12 +84,19 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
                          `${rendering(color.bGreen,color.fBlack,` U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
                          ` ${msg.text ?? "EMPTY"}`);
 
-    // 用户信息更新
+    // Telegram User infomation update
     let u = await User.search(DB,msg.from.id);
+    let now = new Date();
     if(u != undefined)
         msg.from.level = u.level;
-    msg.from.save(DB);
-    // 引用检查
+    await msg.from.save(DB);
+    u = msg.from;
+    u.messageProcessed++;
+    u.lastSeen = now;
+
+    if(!u.registered)
+        u.registered = now;
+    // Reference checker
     if(msg.command == undefined)
         return;
     if(msg.isGroup())
@@ -101,7 +108,9 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
     }
     logger.debug(reqHeader + 
                      PERMISSION.get(msg.from.level)!  + 
-                     ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`,logLevel.debug)
+                     ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`,logLevel.debug);
+    u.commandProcessed++;
+    await msg.from.save(DB);
     commandHandle(msg);
 }
 

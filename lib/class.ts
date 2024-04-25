@@ -340,7 +340,7 @@ export class User
     level: permission = permission.default
     messageProcessed: number
     commandProcessed: number
-    registered: Date
+    registered: Date| undefined
     lastSeen: Date
 
     constructor(id: bigint,
@@ -364,9 +364,10 @@ export class User
             return true;
         return false;
     }
-    setPermission(targetLevel: permission): void
+    async setPermission(targetLevel: permission,db: PrismaClient): Promise<void>
     {
         this.level = targetLevel;
+        await this.save(db);
     }
     async save(db: PrismaClient): Promise<void> {
         let data = this.makeData();
@@ -393,7 +394,7 @@ export class User
         level: $Enums.permission
         messageProcessed: number
         commandProcessed: number
-        registered: Date
+        registered: Date| undefined
         lastSeen: Date})|undefined
     {
         try
@@ -463,7 +464,7 @@ export class User
         level: $Enums.permission
         messageProcessed: number
         commandProcessed: number
-        registered: Date
+        registered: Date| null
         lastSeen: Date}): User|undefined {
         try
         {
@@ -483,7 +484,7 @@ export class User
             user.level = permissions.get(dbUser.level)!
             user.messageProcessed = dbUser.messageProcessed;
             user.commandProcessed = dbUser.commandProcessed;
-            user.registered = dbUser.registered;
+            user.registered = dbUser.registered ?? undefined;
             user.lastSeen = dbUser.lastSeen;
             return user;  
         }
