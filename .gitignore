@@ -1,6 +1,7 @@
 # Proj
 config.yaml
 main.log
+log/
 # Node.JS
 package-lock.json
 yarn.lock
@@ -16,4 +17,6 @@ prisma/*
 .env
 # Prod
 dist/
+# Editor
 /.vs
+.vscode
