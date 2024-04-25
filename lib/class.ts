@@ -364,9 +364,10 @@ export class User
             return true;
         return false;
     }
-    setPermission(targetLevel: permission): void
+    async setPermission(targetLevel: permission,db: PrismaClient): Promise<void>
     {
         this.level = targetLevel;
+        await this.save(db);
     }
     async save(db: PrismaClient): Promise<void> {
         let data = this.makeData();
