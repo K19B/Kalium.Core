@@ -87,15 +87,16 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
     // Telegram User infomation update
     let u = await User.search(DB,msg.from.id);
     let now = new Date();
-    if(u != undefined)
-        msg.from.level = u.level;
-    await msg.from.save(DB);
-    u = msg.from;
-    u.messageProcessed++;
-    u.lastSeen = now;
+    if(u != undefined) {
+        u.update(msg.from);
+        msg.from = u;
+    }
+    msg.from.lastSeen = now;
 
-    if(!u.registered)
-        u.registered = now;
+    if(!msg.from.messageProcessed)
+        msg.from.registered = now;
+    msg.from.messageProcessed++;
+    await msg.from.save(DB);
     // Reference checker
     if(msg.command == undefined)
         return;
@@ -109,7 +110,7 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
     logger.debug(reqHeader + 
                      PERMISSION.get(msg.from.level)!  + 
                      ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`,logLevel.debug);
-    u.commandProcessed++;
+    msg.from.commandProcessed++;
     await msg.from.save(DB);
     commandHandle(msg);
 }
