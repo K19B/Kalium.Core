@@ -48,6 +48,6 @@ model user {
     level permission
     messageProcessed Int
     commandProcessed Int
-    registered DateTime
+    registered DateTime?
     lastSeen DateTime
 }
