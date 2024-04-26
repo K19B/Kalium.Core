@@ -93,8 +93,11 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
     }
     msg.from.lastSeen = now;
 
-    if(!msg.from.messageProcessed)
+    if(!msg.from.messageProcessed) {
         msg.from.registered = now;
+        msg.from.messageProcessed = 0;
+        msg.from.commandProcessed = 0;
+    }
     msg.from.messageProcessed++;
     await msg.from.save(DB);
     // Reference checker
