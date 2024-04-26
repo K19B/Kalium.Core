@@ -1,3 +1,7 @@
+# v0.12.2
+- fix: missing commandProcessed create
+- chore: deps cleanup
+
 # v0.12.1
 - fix: writeLog condition
 
