@@ -7,10 +7,11 @@ import * as color from './lib/color';
 import { logger, message, command, User, logLevel, rendering } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
-import { config } from './lib/config';
+import { config, file } from './lib/config';
 import { format } from 'date-fns';
 import { exit } from 'process';
 import { dbUrl } from './lib/prisma';
+import { JSDOM } from 'jsdom';
 
 
 const VER = process.env.npm_package_version;
@@ -313,4 +314,17 @@ function arcCalc(msg: message): void
             msg.reply(err);
         }
     }
+}
+
+// Html Parser
+function getElements(filePath: string,selector: string): string[] | undefined
+{
+    let htmlContent: string|undefined = file.read(filePath);
+    if(!htmlContent)
+        return undefined;
+
+    let dom = new JSDOM(htmlContent);
+    let doc = dom.window.document;
+    const elements = doc.querySelectorAll(selector);
+    return Array.from(elements).map(x => x.textContent ?? "");
 }

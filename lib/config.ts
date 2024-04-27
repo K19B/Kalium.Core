@@ -19,6 +19,20 @@ export class file {
             return false;
         }
     }
+    static read(filePath: string): string|undefined
+    {
+        try
+        {
+            if(!this.exist(filePath))
+                return undefined;
+    
+            return fs.readFileSync(filePath, 'utf-8');
+        }
+        catch
+        {
+            return undefined;
+        }
+    }
 }
 
 export interface ISerializer {
