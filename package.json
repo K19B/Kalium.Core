@@ -1,6 +1,6 @@
 {
   "name": "kalium19",
-  "version": "0.12.2",
+  "version": "0.13.0",
   "description": "Kalium Telegram Bot",
   "main": "main.ts",
   "type": "module",
