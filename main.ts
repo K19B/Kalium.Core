@@ -2,7 +2,7 @@ import * as os from 'os';
 import nodeBot from 'node-telegram-bot-api';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
-import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
+import { maiRankJp } from '../kalium-vanilla-mai/main';
 import * as color from './lib/color';
 import { logger, message, command, User, logLevel, rendering } from './lib/class';
 import { PrismaClient } from '@prisma/client';
