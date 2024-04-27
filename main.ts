@@ -328,3 +328,9 @@ function getElements(filePath: string,selector: string): string[] | undefined
     const elements = doc.querySelectorAll(selector);
     return Array.from(elements).map(x => x.textContent ?? "");
 }
+function stringHandle(s: string): string
+{
+    return s.replace(/[\uff01-\uff5e]/g, 
+                    c => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+            .replace(/\s/g, '');
+}
