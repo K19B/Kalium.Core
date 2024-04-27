@@ -11,7 +11,6 @@ import { config, file } from './lib/config';
 import { format } from 'date-fns';
 import { exit } from 'process';
 import { dbUrl } from './lib/prisma';
-import { JSDOM } from 'jsdom';
 
 
 const VER = process.env.npm_package_version;
@@ -316,21 +315,4 @@ function arcCalc(msg: message): void
     }
 }
 
-// Html Parser
-function getElements(filePath: string,selector: string): string[] | undefined
-{
-    let htmlContent: string|undefined = file.read(filePath);
-    if(!htmlContent)
-        return undefined;
 
-    let dom = new JSDOM(htmlContent);
-    let doc = dom.window.document;
-    const elements = doc.querySelectorAll(selector);
-    return Array.from(elements).map(x => x.textContent ?? "");
-}
-function stringHandle(s: string): string
-{
-    return s.replace(/[\uff01-\uff5e]/g, 
-                    c => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
-            .replace(/\s/g, '');
-}
