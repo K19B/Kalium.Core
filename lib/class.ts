@@ -105,7 +105,7 @@ export class message{
     // If chat is Group or SuperGroup,return true
     isGroup(): boolean
     {
-        return this.chat.type === ("group" || "supergroup");
+        return this.chat.type === "group" || this.chat.type === "supergroup";
     }
     // Send a new message and reply
     // Return: Sended message
