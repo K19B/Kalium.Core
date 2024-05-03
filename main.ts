@@ -2,23 +2,24 @@ import * as os from 'os';
 import nodeBot from 'node-telegram-bot-api';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
-import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
+import { maiRankJp } from '../kalium-vanilla-mai/main'
 import * as color from './lib/color';
-import { logger, message, command, User, logLevel, rendering } from './lib/class';
+import { logger, message, command, User, logLevel, rendering, cliCommand } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
-import { config } from './lib/config';
+import { config, file } from './lib/config';
 import { format } from 'date-fns';
 import { exit } from 'process';
 import { dbUrl } from './lib/prisma';
+import { JSDOM } from 'jsdom';
 
+export const BOTCONFIG: config | undefined = config.parse('config.yaml');
+export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
 
 const VER = process.env.npm_package_version;
 const PLATFORM = os.platform();
-export const BOTCONFIG :config|undefined = config.parse('config.yaml');
 const STARTTIME :string = Date();
 const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
-export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
 const DB = new PrismaClient({
     datasources: {
       db: {
@@ -35,12 +36,21 @@ const PERMISSION = new Map([
     [19,rendering(color.fRed,color.bBlack,    "  Owner   ")],
 ]);
 
-// Whats this -- LeZi
+// Kalium CLI
 process.stdin.on('data', (data: Buffer) => {
-    let key = data.toString().trim();
-    if (key === 'KINTERNALLOADERQUIT') {
-        logger.debug('Core exiting... (Rcvd \'KINTERNALLOADERQUIT\' command)');
-        process.exit();
+    let key = new cliCommand(data.toString().trim());
+    switch(key.prefix)
+    {
+        case "KINTERNALLOADERQUIT":
+            logger.debug('Core exiting... (Rcvd \'KINTERNALLOADERQUIT\' command)');
+            process.exit();
+        case "SEND":
+            console.log(key);
+            if (key.content.split(" ")[2]) {
+                let msg = '```Kalium-CLI-Message\n' + key.content.split(" ").slice(2).join(" ") + '\n```';
+                message.send(bot, parseInt(key.content.split(" ")[1]), msg)
+            }
+        break;
     }
 });
 
@@ -241,7 +251,7 @@ function exec(path: string, args: string[]) {
         return err('EXEC', e as string);
     }
 }
-function secureExec(path: string, args: string[]) {
+function secureExe0c(path: string, args: string[]) {
     logger.debug('\x1b[45m EXEC \x1b[0m ' + path + ' ARGS: ' + args );
     log('EXEC', 'INFO  ', path + ' ARGS: ' + args )
     try {

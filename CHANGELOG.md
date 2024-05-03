@@ -1,3 +1,7 @@
+# v0.13.0
+- feat: html parser
+- feat: cli
+
 # v0.12.2
 - fix: missing commandProcessed create
 - chore: deps cleanup

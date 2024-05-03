@@ -33,6 +33,15 @@ export enum maiLoginType
     friend
 }
 
+export class cliCommand{
+    content: string
+    prefix: string
+    constructor(content: string) {
+        this.prefix = content.split(" ")[0]
+        this.content = content;
+    }
+}
+
 export class logger {
     static debug(content: string, level: logLevel = logLevel.debug) {
         let text: string | undefined;
