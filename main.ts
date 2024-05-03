@@ -286,7 +286,18 @@ async function maiRank(msg: message): Promise<void>
         let result = "你还没有设置 DX Net 登录凭据哇！\n使用 /setid 和 /setp 登录！"
         msg.reply(result);
     } else {
-        let result = await maiRankJp(白丝Id, maisegaId, maiPasswd);
+        let data = await maiRankJp(白丝Id, maisegaId, maiPasswd);
+        if(!data || data.length < 3)
+        {
+            msg.reply("```\nEMPTY\n```");
+            return;
+        }
+        let result = `[1] ${data[0].ranker}\n
+                      ${data[0].score}\n
+                      [2] ${data[1].ranker}\n
+                      ${data[1].score}\n
+                      [3] ${data[2].ranker}\n
+                      ${data[2].score}\n`;
         msg.reply("```\n" + result + "\n```");
     }
 }
