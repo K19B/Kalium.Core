@@ -53,6 +53,10 @@ function run() {
         await sleep(3000);
         restart();
     };
+    process.stdin.on('data', (data: Buffer) => { // passthrough stdin to core
+        let key = data.toString().trim();
+        subprocess.stdin.write(key);
+    });
 }
 
 run();
