@@ -7,11 +7,10 @@ import * as color from './lib/color';
 import { logger, message, command, User, logLevel, rendering, cliCommand } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
-import { config, file } from './lib/config';
+import { config } from './lib/config';
 import { format } from 'date-fns';
 import { exit } from 'process';
 import { dbUrl } from './lib/prisma';
-import { JSDOM } from 'jsdom';
 
 export const BOTCONFIG: config | undefined = config.parse('config.yaml');
 export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
@@ -323,17 +322,4 @@ function arcCalc(msg: message): void
             msg.reply(err);
         }
     }
-}
-
-// Html Parser
-function getElements(filePath: string,selector: string): string[] | undefined
-{
-    let htmlContent: string|undefined = file.read(filePath);
-    if(!htmlContent)
-        return undefined;
-
-    let dom = new JSDOM(htmlContent);
-    let doc = dom.window.document;
-    const elements = doc.querySelectorAll(selector);
-    return Array.from(elements).map(x => x.textContent ?? "");
 }
