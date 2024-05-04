@@ -1,4 +1,4 @@
-import nodeBot, { Audio, Document, ParseMode, PhotoSize } from 'node-telegram-bot-api';
+import nodeBot, { Audio, Document, ParseMode, PhotoSize} from 'node-telegram-bot-api';
 import * as color from './color';
 import { $Enums, PrismaClient } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
@@ -91,6 +91,7 @@ export class message{
     photo: PhotoSize[] | undefined
     command: command | undefined
     client: nodeBot | undefined
+    lang: string | undefined
 
     constructor(id: number, from: nodeBot.User, chat: nodeBot.Chat, command: command | undefined)
     {
@@ -185,6 +186,7 @@ export class message{
             msg.document = botMsg.document;
             msg.photo = botMsg.photo;
             msg.client = bot;
+            msg.lang = botMsg.from?.language_code;
             return msg;
         }
         catch {

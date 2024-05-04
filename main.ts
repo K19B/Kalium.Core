@@ -174,9 +174,25 @@ function commandHandle(msg: message): void
 }
 function getUserInfo(msg: message): void
 {
+    let p = new Map([
+        [-1, "Disabled"],
+        [0,  "Default "],
+        [1, "WListed"],
+        [2, "Admin"],
+        [19,"Owner"],
+    ])
     let userId = msg.from.id;
-    let resp = 'Kalium User Info\n```\nID: ' + userId +
-               '\n```' + Date();
+    let resp = 'Welcome to use Kalium.Core\n```\n' + 
+                `- User Info\n`+
+                `Name: ${msg.from.getName()}\n`+
+                `ID  : ${userId}\n`+
+                `${msg.isPrivate() ? `Lang: ${msg.lang}\n`:``}`+
+                `Permission: ${p.get(msg.from.level)}\n\n`+
+                `- Analyzer\n`+
+                `Msg proc count: ${msg.from.messageProcessed}\n`+
+                `Cmd proc count: ${msg.from.commandProcessed}\n`+
+                `Register at   : ${format(msg.from.registered,"yyyy-MM-dd HH:mm:ss")}` +
+               '\n```';
     msg.reply(resp);
 }
 function checkAlive(msg: message): void
