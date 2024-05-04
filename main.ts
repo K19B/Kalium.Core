@@ -77,58 +77,62 @@ logger.debug(' Bot core started.\n');
 // Receive Messages
 async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | null): Promise<void>
 {
-    const USERNAME: string = (await bot.getMe()).username as string;
-    let Commands = await bot.getMyCommands();
-    let msg: message | undefined = message.parse(bot,botMsg);
-    let recHeader = `${rendering(color.fWhite,color.bBlue," RECV ")}`;
-    let reqHeader = `${rendering(color.fBlack,color.bPurple," UREQ ")}`;
-    if(msg == undefined) return;
+    try {
+        const USERNAME: string = (await bot.getMe()).username as string;
+        let Commands = await bot.getMyCommands();
+        let msg: message | undefined = message.parse(bot, botMsg);
+        let recHeader = `${rendering(color.fWhite, color.bBlue, " RECV ")}`;
+        let reqHeader = `${rendering(color.fBlack, color.bPurple, " UREQ ")}`;
+        if (msg == undefined) return;
 
-    if(msg.isGroup())
-        logger.debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
-                         ` ${msg.text ?? "EMPTY"}`);
-    else
-        logger.debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
-                         ` ${msg.text ?? "EMPTY"}`);
+        if (msg.isGroup())
+            logger.debug(recHeader +
+                `${rendering(color.bGreen, color.fBlack, ` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.id}) `)}` +
+                ` ${msg.text ?? "EMPTY"}`);
+        else
+            logger.debug(recHeader +
+                `${rendering(color.bGreen, color.fBlack, ` U:${msg.from.getName()}(${msg.from.id}) `)}` +
+                ` ${msg.text ?? "EMPTY"}`);
 
-    // Telegram User infomation update
-    let u = await User.search(DB,msg.from.id);
-    let now = new Date();
-    if(u != undefined) {
-        u.update(msg.from);
-        msg.from = u;
-    }
-    msg.from.lastSeen = now;
-
-    if(!msg.from.messageProcessed) {
-        msg.from.registered = now;
-        msg.from.messageProcessed = 0;
-        msg.from.commandProcessed = 0;
-    }
-    msg.from.messageProcessed++;
-    await msg.from.save(DB);
-    // Reference checker
-    if(msg.command == undefined)
-        return;
-    
-    if(msg.command.prefix.includes("@"))
-    {
-        let _prefix = msg.command.prefix.split("@");
-        if(msg.isGroup())
-        {
-            if(_prefix[1] != USERNAME )
-                return;
+        // Telegram User infomation update
+        let u = await User.search(DB, msg.from.id);
+        let now = new Date();
+        if (u != undefined) {
+            u.update(msg.from);
+            msg.from = u;
         }
-        msg.command.prefix = _prefix[0];
+        msg.from.lastSeen = now;
+
+        if (!msg.from.messageProcessed) {
+            msg.from.registered = now;
+            msg.from.messageProcessed = 0;
+            msg.from.commandProcessed = 0;
+        }
+        msg.from.messageProcessed++;
+        await msg.from.save(DB);
+        // Reference checker
+        if (msg.command == undefined)
+            return;
+
+        if (msg.command.prefix.includes("@")) {
+            let _prefix = msg.command.prefix.split("@");
+            if (msg.isGroup()) {
+                if (_prefix[1] != USERNAME)
+                    return;
+            }
+            msg.command.prefix = _prefix[0];
+        }
+        logger.debug(reqHeader +
+            PERMISSION.get(msg.from.level)! +
+            ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`, logLevel.debug);
+        msg.from.commandProcessed++;
+        await msg.from.save(DB);
+        commandHandle(msg);
     }
-    logger.debug(reqHeader + 
-                     PERMISSION.get(msg.from.level)!  + 
-                     ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`,logLevel.debug);
-    msg.from.commandProcessed++;
-    await msg.from.save(DB);
-    commandHandle(msg);
+    catch(e:any)
+    {
+        logger.debug(` ${e.message ?? e}`,logLevel.fatal)
+    }
 }
 
 // Bot Commands

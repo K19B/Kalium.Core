@@ -5,12 +5,12 @@ import { BOTCONFIG, LOGNAME } from '../main';
 import { file } from './config';
 
 export enum logLevel {
-    slient = -10,
-    fatal,
-    error,
-    warn = -1,
-    info,
-    debug
+    fatal = 9,
+    error = 8,
+    warn = 2,
+    info = 1,
+    debug = 0,
+    slient = -1
 }
 export enum permission
 {
