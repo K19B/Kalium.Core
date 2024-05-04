@@ -2,15 +2,16 @@ import * as os from 'os';
 import nodeBot from 'node-telegram-bot-api';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
-import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
+import { maiRankJp } from '../kalium-vanilla-mai/main';
 import * as color from './lib/color';
 import { logger, message, command, User, logLevel, rendering, cliCommand } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
-import { config } from './lib/config';
+import { config, file } from './lib/config';
 import { format } from 'date-fns';
 import { exit } from 'process';
 import { dbUrl } from './lib/prisma';
+import { JSDOM } from 'jsdom';
 
 export const BOTCONFIG: config | undefined = config.parse('config.yaml');
 export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
@@ -295,7 +296,18 @@ async function maiRank(msg: message): Promise<void>
         let result = "你还没有设置 DX Net 登录凭据哇！\n使用 /setid 和 /setp 登录！"
         msg.reply(result);
     } else {
-        let result = await maiRankJp(白丝Id, maisegaId, maiPasswd);
+        let data = await maiRankJp(白丝Id, maisegaId, maiPasswd);
+        if(!data || data.length < 3)
+        {
+            msg.reply("```\nEMPTY\n```");
+            return;
+        }
+        let result = `[1] ${data[0].ranker}\n
+                      ${data[0].score}\n
+                      [2] ${data[1].ranker}\n
+                      ${data[1].score}\n
+                      [3] ${data[2].ranker}\n
+                      ${data[2].score}\n`;
         msg.reply("```\n" + result + "\n```");
     }
 }
@@ -323,3 +335,4 @@ function arcCalc(msg: message): void
         }
     }
 }
+
