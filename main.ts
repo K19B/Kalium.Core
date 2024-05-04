@@ -7,11 +7,10 @@ import * as color from './lib/color';
 import { logger, message, command, User, logLevel, rendering, cliCommand } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
-import { config, file } from './lib/config';
+import { config } from './lib/config';
 import { format } from 'date-fns';
 import { exit } from 'process';
 import { dbUrl } from './lib/prisma';
-import { JSDOM } from 'jsdom';
 
 export const BOTCONFIG: config | undefined = config.parse('config.yaml');
 export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
@@ -113,12 +112,16 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
     // Reference checker
     if(msg.command == undefined)
         return;
-    if(msg.isGroup())
+    
+    if(msg.command.prefix.includes("@"))
     {
-        if(!msg.command.prefix.includes(USERNAME as string))
-            return;
-        else if(msg.command.prefix.split("@")[1] != (USERNAME as string))
-            return
+        let _prefix = msg.command.prefix.split("@");
+        if(msg.isGroup())
+        {
+            if(_prefix[1] != USERNAME )
+                return;
+        }
+        msg.command.prefix = _prefix[0];
     }
     logger.debug(reqHeader + 
                      PERMISSION.get(msg.from.level)!  + 

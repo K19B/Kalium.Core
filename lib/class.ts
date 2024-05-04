@@ -171,7 +171,10 @@ export class message{
             let pCommand: command | undefined;
             if(content.length < 2) {
                 pCommand = undefined
-            } else {
+            } 
+            else if(content.charAt(0) != "/")
+                pCommand = undefined;
+            else {
                 let array : string[] = content.split(" ").filter(x => x !== "");
                 let prefix: string = array[0].replace("/","");
                 pCommand = new command(prefix,array.slice(1));
