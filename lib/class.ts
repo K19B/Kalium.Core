@@ -3,6 +3,7 @@ import * as color from './color';
 import { $Enums, PrismaClient } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
 import { file } from './config';
+import { musicScore } from '../../kalium-vanilla-mai/class';
 
 export enum logLevel {
     slient = -10,
@@ -32,7 +33,11 @@ export enum maiLoginType
     netId,
     friend
 }
-
+export class maiData{
+    id: number
+    server: regMaiServer
+    data: musicScore[]
+}
 export class cliCommand{
     content: string
     prefix: string

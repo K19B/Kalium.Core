@@ -30,9 +30,29 @@ enum permission {
     admin
     owner
 }
-
-model maiAccount{
-    id Int @unique
+enum musicDifficulty {
+    BASIC
+    ADVANCED
+    EXPERT
+    MASTER
+    ReMASTER
+    UTAGE
+}
+model musicScore {
+    name String @unique
+    level String
+    difficulty  musicDifficulty
+    score Float
+    dxScore Int
+}
+model maiData {
+    id BigInt @unique
+    server regMaiServer
+    loginType maiLoginType
+    data String
+}
+model maiAccount {
+    id BigInt @unique
     server regMaiServer
     loginType maiLoginType
     maiId String
