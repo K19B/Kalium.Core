@@ -1,17 +1,18 @@
-import nodeBot, { Audio, Document, ParseMode, PhotoSize } from 'node-telegram-bot-api';
+import nodeBot, { Audio, Document, ParseMode, PhotoSize} from 'node-telegram-bot-api';
 import * as color from './color';
 import { $Enums, PrismaClient } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
-import { file } from './config';
+import { YamlSerializer, file } from './config';
 import { musicScore } from '../../kalium-vanilla-mai/class';
+import internal from 'stream';
 
 export enum logLevel {
-    slient = -10,
-    fatal,
-    error,
-    warn = -1,
-    info,
-    debug
+    fatal = 9,
+    error = 8,
+    warn = 2,
+    info = 1,
+    debug = 0,
+    slient = -1
 }
 export enum permission
 {
@@ -37,6 +38,42 @@ export class maiData{
     id: number
     server: regMaiServer
     data: musicScore[]
+
+    constructor(i: number,s: regMaiServer,d: musicScore[])
+    {
+        this.id = i;
+        this.server = s;
+        this.data = d;
+    }
+    makeData(): ({
+        id: number,
+        server: $Enums.regMaiServer
+        data: string
+    }) | undefined {
+        let serverType: $Enums.regMaiServer[] = [$Enums.regMaiServer.JP,$Enums.regMaiServer.Intl,$Enums.regMaiServer.CN];
+        return {
+            id: this.id,
+            server: serverType[this.server],
+            data: YamlSerializer.serialize(this.data)
+        };
+    }
+    convert(d: {
+        id: number,
+        server: $Enums.regMaiServer
+        data: string
+    }): maiData {
+        let list = YamlSerializer.deserialize<musicScore[]>(d.data)
+        let serverType: Map<$Enums.regMaiServer,regMaiServer> = new Map(
+            [
+                [$Enums.regMaiServer.JP,regMaiServer.JP],
+                [$Enums.regMaiServer.Intl,regMaiServer.Intl],
+                [$Enums.regMaiServer.CN,regMaiServer.CN]
+            ]
+        );
+        let s = serverType.get(d.server);
+
+        return new maiData(d.id,s!,list);
+    }
 }
 export class cliCommand{
     content: string
@@ -96,6 +133,7 @@ export class message{
     photo: PhotoSize[] | undefined
     command: command | undefined
     client: nodeBot | undefined
+    lang: string | undefined
 
     constructor(id: number, from: nodeBot.User, chat: nodeBot.Chat, command: command | undefined)
     {
@@ -119,7 +157,7 @@ export class message{
     // If chat is Group or SuperGroup,return true
     isGroup(): boolean
     {
-        return this.chat.type === ("group" || "supergroup");
+        return this.chat.type === "group" || this.chat.type === "supergroup";
     }
     // Send a new message and reply
     // Return: Sended message
@@ -176,7 +214,10 @@ export class message{
             let pCommand: command | undefined;
             if(content.length < 2) {
                 pCommand = undefined
-            } else {
+            } 
+            else if(content.charAt(0) != "/")
+                pCommand = undefined;
+            else {
                 let array : string[] = content.split(" ").filter(x => x !== "");
                 let prefix: string = array[0].replace("/","");
                 pCommand = new command(prefix,array.slice(1));
@@ -187,6 +228,7 @@ export class message{
             msg.document = botMsg.document;
             msg.photo = botMsg.photo;
             msg.client = bot;
+            msg.lang = botMsg.from?.language_code;
             return msg;
         }
         catch {

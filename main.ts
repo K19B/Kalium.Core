@@ -2,7 +2,7 @@ import * as os from 'os';
 import nodeBot from 'node-telegram-bot-api';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
-import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
+import { maiRankJp } from '../kalium-vanilla-mai/main';
 import * as color from './lib/color';
 import { logger, message, command, User, logLevel, rendering, cliCommand } from './lib/class';
 import { PrismaClient } from '@prisma/client';
@@ -77,54 +77,65 @@ logger.debug(' Bot core started.\n');
 // Receive Messages
 async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | null): Promise<void>
 {
-    const USERNAME: string = (await bot.getMe()).username as string;
-    let Commands = await bot.getMyCommands();
-    let msg: message | undefined = message.parse(bot,botMsg);
-    let recHeader = `${rendering(color.fWhite,color.bBlue," RECV ")}`;
-    let reqHeader = `${rendering(color.fBlack,color.bPurple," UREQ ")}`;
-    if(msg == undefined) return;
+    try {
+        const USERNAME: string = (await bot.getMe()).username as string;
+        let Commands = await bot.getMyCommands();
+        let msg: message | undefined = message.parse(bot, botMsg);
+        let recHeader = `${rendering(color.fWhite, color.bBlue, " RECV ")}`;
+        let reqHeader = `${rendering(color.fBlack, color.bPurple, " UREQ ")}`;
+        if (msg == undefined) return;
 
-    if(msg.isGroup())
-        logger.debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
-                         ` ${msg.text ?? "EMPTY"}`);
-    else
-        logger.debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
-                         ` ${msg.text ?? "EMPTY"}`);
+        if (msg.isGroup())
+            logger.debug(recHeader +
+                `${rendering(color.bGreen, color.fBlack, ` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.id}) `)}` +
+                ` ${msg.text ?? "EMPTY"}`);
+        else
+            logger.debug(recHeader +
+                `${rendering(color.bGreen, color.fBlack, ` U:${msg.from.getName()}(${msg.from.id}) `)}` +
+                ` ${msg.text ?? "EMPTY"}`);
 
-    // Telegram User infomation update
-    let u = await User.search(DB,msg.from.id);
-    let now = new Date();
-    if(u != undefined) {
-        u.update(msg.from);
-        msg.from = u;
-    }
-    msg.from.lastSeen = now;
+        // Telegram User infomation update
+        let u = await User.search(DB, msg.from.id);
+        let now = new Date();
+        if (u != undefined) {
+            u.update(msg.from);
+            msg.from = u;
+        }
+        msg.from.lastSeen = now;
 
-    if(!msg.from.messageProcessed) {
-        msg.from.registered = now;
-        msg.from.messageProcessed = 0;
-        msg.from.commandProcessed = 0;
-    }
-    msg.from.messageProcessed++;
-    await msg.from.save(DB);
-    // Reference checker
-    if(msg.command == undefined)
-        return;
-    if(msg.isGroup())
-    {
-        if(!msg.command.prefix.includes(USERNAME as string))
+        if (!msg.from.messageProcessed) {
+            msg.from.registered = now;
+            msg.from.messageProcessed = 0;
+            msg.from.commandProcessed = 0;
+        }
+        msg.from.messageProcessed++;
+        
+        // Reference checker
+        if (msg.command == undefined) {
+            await msg.from.save(DB);
             return;
-        else if(msg.command.prefix.split("@")[1] != (USERNAME as string))
-            return
+        }
+        else if (msg.command.prefix.includes("@")) {
+            let _prefix = msg.command.prefix.split("@");
+            if (msg.isGroup()) {
+                if (_prefix[1] != USERNAME) {
+                    await msg.from.save(DB);
+                    return;
+                }
+            }
+            msg.command.prefix = _prefix[0];
+        }
+        logger.debug(reqHeader +
+            PERMISSION.get(msg.from.level)! +
+            ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`, logLevel.debug);
+        msg.from.commandProcessed++;
+        await msg.from.save(DB);
+        commandHandle(msg);
     }
-    logger.debug(reqHeader + 
-                     PERMISSION.get(msg.from.level)!  + 
-                     ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`,logLevel.debug);
-    msg.from.commandProcessed++;
-    await msg.from.save(DB);
-    commandHandle(msg);
+    catch(e:any)
+    {
+        logger.debug(` ${e.message ?? e}`,logLevel.fatal)
+    }
 }
 
 // Bot Commands
@@ -170,9 +181,25 @@ function commandHandle(msg: message): void
 }
 function getUserInfo(msg: message): void
 {
+    let p = new Map([
+        [-1, "Disabled"],
+        [0,  "Default "],
+        [1, "WListed"],
+        [2, "Admin"],
+        [19,"Owner"],
+    ])
     let userId = msg.from.id;
-    let resp = 'Kalium User Info\n```\nID: ' + userId +
-               '\n```' + Date();
+    let resp = 'Welcome to use Kalium.Core\n```\n' + 
+                `- User Info\n`+
+                `Name: ${msg.from.getName()}\n`+
+                `ID  : ${userId}\n`+
+                `${msg.isPrivate() ? `Lang: ${msg.lang}\n`:``}`+
+                `Permission: ${p.get(msg.from.level)}\n\n`+
+                `- Analyzer\n`+
+                `Msg proc count: ${msg.from.messageProcessed}\n`+
+                `Cmd proc count: ${msg.from.commandProcessed}\n`+
+                `Register at   : ${format(msg.from.registered,"yyyy-MM-dd HH:mm:ss")}` +
+               '\n```';
     msg.reply(resp);
 }
 function checkAlive(msg: message): void
@@ -295,7 +322,18 @@ async function maiRank(msg: message): Promise<void>
         let result = "你还没有设置 DX Net 登录凭据哇！\n使用 /setid 和 /setp 登录！"
         msg.reply(result);
     } else {
-        let result = await maiRankJp(白丝Id, maisegaId, maiPasswd);
+        let data = await maiRankJp(白丝Id, maisegaId, maiPasswd);
+        if(!data || data.length < 3)
+        {
+            msg.reply("```\nEMPTY\n```");
+            return;
+        }
+        let result = `[1] ${data[0].ranker}\n
+                      ${data[0].score}\n
+                      [2] ${data[1].ranker}\n
+                      ${data[1].score}\n
+                      [3] ${data[2].ranker}\n
+                      ${data[2].score}\n`;
         msg.reply("```\n" + result + "\n```");
     }
 }
@@ -323,3 +361,4 @@ function arcCalc(msg: message): void
         }
     }
 }
+
