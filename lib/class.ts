@@ -2,8 +2,9 @@ import nodeBot, { Audio, Document, ParseMode, PhotoSize} from 'node-telegram-bot
 import * as color from './color';
 import { $Enums, PrismaClient } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
-import { file } from './config';
+import { YamlSerializer, file } from './config';
 import { musicScore } from '../../kalium-vanilla-mai/class';
+import internal from 'stream';
 
 export enum logLevel {
     fatal = 9,
@@ -37,6 +38,42 @@ export class maiData{
     id: number
     server: regMaiServer
     data: musicScore[]
+
+    constructor(i: number,s: regMaiServer,d: musicScore[])
+    {
+        this.id = i;
+        this.server = s;
+        this.data = d;
+    }
+    makeData(): ({
+        id: number,
+        server: $Enums.regMaiServer
+        data: string
+    }) | undefined {
+        let serverType: $Enums.regMaiServer[] = [$Enums.regMaiServer.JP,$Enums.regMaiServer.Intl,$Enums.regMaiServer.CN];
+        return {
+            id: this.id,
+            server: serverType[this.server],
+            data: YamlSerializer.serialize(this.data)
+        };
+    }
+    convert(d: {
+        id: number,
+        server: $Enums.regMaiServer
+        data: string
+    }): maiData {
+        let list = YamlSerializer.deserialize<musicScore[]>(d.data)
+        let serverType: Map<$Enums.regMaiServer,regMaiServer> = new Map(
+            [
+                [$Enums.regMaiServer.JP,regMaiServer.JP],
+                [$Enums.regMaiServer.Intl,regMaiServer.Intl],
+                [$Enums.regMaiServer.CN,regMaiServer.CN]
+            ]
+        );
+        let s = serverType.get(d.server);
+
+        return new maiData(d.id,s!,list);
+    }
 }
 export class cliCommand{
     content: string
