@@ -31,27 +31,28 @@ enum permission {
     owner
 }
 enum musicDifficulty {
-    Basic
-    Advanced
-    Expert
-    Master
-    ReMaster
-    Utage
+    BASIC
+    ADVANCED
+    EXPERT
+    MASTER
+    ReMASTER
+    UTAGE
 }
-model musicScore{
+model musicScore {
     name String @unique
     level String
     difficulty  musicDifficulty
     score Float
     dxScore Int
 }
-model maiData{
-    id Int @unique
+model maiData {
+    id BigInt @unique
     server regMaiServer
+    loginType maiLoginType
     data String
 }
-model maiAccount{
-    id Int @unique
+model maiAccount {
+    id BigInt @unique
     server regMaiServer
     loginType maiLoginType
     maiId String
