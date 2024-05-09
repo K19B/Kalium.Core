@@ -254,7 +254,7 @@ export class command{
 }
 export class maiAccount
 {
-    id: number
+    id: bigint
     server: regMaiServer
     loginType: maiLoginType
     maiId: string
@@ -262,7 +262,7 @@ export class maiAccount
     maiAlterId: string | undefined
     maiAlterToken: string | undefined
 
-    constructor(id: number,server: regMaiServer){
+    constructor(id: bigint,server: regMaiServer){
         this.id = id;
         this.server = server;
         this.maiId;
@@ -288,7 +288,7 @@ export class maiAccount
         }
     }
     makeData(): ({
-        id: number
+        id: bigint
         server: $Enums.regMaiServer
         loginType: $Enums.maiLoginType
         maiId: string
@@ -324,7 +324,7 @@ export class maiAccount
 
         return users.map(func);
     }
-    static async search(db: PrismaClient,id: number,server: regMaiServer): Promise<maiAccount|undefined> {
+    static async search(db: PrismaClient,id: bigint,server: regMaiServer): Promise<maiAccount|undefined> {
         let result: maiAccount|undefined = undefined;
         let _ = ["JP","Intl","CN"];
         let r = await db.maiAccount.findUnique({
@@ -348,7 +348,7 @@ export class maiAccount
         return result;
     }
     static convert(dbUser: {
-        id: number
+        id: bigint
         server: $Enums.regMaiServer
         loginType: $Enums.maiLoginType
         maiId: string
@@ -496,7 +496,7 @@ export class User
 
         return users.map(func);
     }
-    static async search(db: PrismaClient,id: BigInt): Promise<User|undefined> {
+    static async search(db: PrismaClient,id: bigint): Promise<User|undefined> {
         let result: User|undefined = undefined;
         let r = await db.user.findUnique({
             where: {
