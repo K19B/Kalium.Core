@@ -109,16 +109,19 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
             msg.from.commandProcessed = 0;
         }
         msg.from.messageProcessed++;
-        await msg.from.save(DB);
+        
         // Reference checker
-        if (msg.command == undefined)
+        if (msg.command == undefined) {
+            await msg.from.save(DB);
             return;
-
-        if (msg.command.prefix.includes("@")) {
+        }
+        else if (msg.command.prefix.includes("@")) {
             let _prefix = msg.command.prefix.split("@");
             if (msg.isGroup()) {
-                if (_prefix[1] != USERNAME)
+                if (_prefix[1] != USERNAME) {
+                    await msg.from.save(DB);
                     return;
+                }
             }
             msg.command.prefix = _prefix[0];
         }
