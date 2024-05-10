@@ -229,7 +229,7 @@ function wolHandle(msg: message): void
 }
 function fuckZzy(msg: message): void
 {
-    fwrd(msg.chat.id, "@MBRFans", 374741);
+    message.forward(bot,"@MBRFans",msg.chat.id,374741);
 }
 function netQuery(msg: message): void
 {

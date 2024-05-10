@@ -5,6 +5,7 @@ import { BOTCONFIG, LOGNAME } from '../main';
 import { YamlSerializer, file } from './config';
 import { musicScore } from '../../kalium-vanilla-mai/class';
 import internal from 'stream';
+import { ms } from 'date-fns/locale';
 
 export enum logLevel {
     fatal = 9,
@@ -249,6 +250,17 @@ export class message{
     {
         return await this.client?.deleteMessage(this.chat.id,this.id)!;
     }
+    async forward(desChat: string|number): Promise<message| undefined>
+    {
+        if(!this.client)
+            return undefined;
+
+        let msg = await this.client?.forwardMessage(desChat,this.chat.id,this.id);
+
+        if(!msg)
+            return undefined;
+        return message.parse(this.client,msg);
+    }
     // Send a message without reply
     // Return: Sended message
     async send(text: string,
@@ -266,6 +278,19 @@ export class message{
         let msg = await botClient.sendMessage(chatId, text, { parse_mode: parseMode })
 
         return message.parse(botClient,msg);
+    }
+    static async forward(client: nodeBot,
+                         srcChatId: string| number,
+                         desChatId: string| number,
+                         msgId: number): Promise<message| undefined>{
+        if (!client)
+            return undefined;
+
+        let msg = await client?.forwardMessage(desChatId, srcChatId, msgId);
+
+        if (!msg)
+            return undefined;
+        return message.parse(client, msg);
     }
     static parse(bot: nodeBot,botMsg: nodeBot.Message): message | undefined
     {
