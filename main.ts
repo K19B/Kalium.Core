@@ -85,7 +85,7 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
         let reqHeader = `${rendering(color.fBlack, color.bPurple, " UREQ ")}`;
         if (msg == undefined) return;
 
-        if (msg.isGroup())
+        if (msg.isGroup)
             logger.debug(recHeader +
                 `${rendering(color.bGreen, color.fBlack, ` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.id}) `)}` +
                 ` ${msg.text ?? "EMPTY"}`);
@@ -117,7 +117,7 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
         }
         else if (msg.command.prefix.includes("@")) {
             let _prefix = msg.command.prefix.split("@");
-            if (msg.isGroup()) {
+            if (msg.isGroup) {
                 if (_prefix[1] != USERNAME) {
                     await msg.from.save(DB);
                     return;
@@ -193,7 +193,7 @@ function getUserInfo(msg: message): void
                 `- User Info\n`+
                 `Name: ${msg.from.getName()}\n`+
                 `ID  : ${userId}\n`+
-                `${msg.isPrivate() ? `Lang: ${msg.lang}\n`:``}`+
+                `${msg.isPrivate ? `Lang: ${msg.lang}\n`:``}`+
                 `Permission: ${p.get(msg.from.level)}\n\n`+
                 `- Analyzer\n`+
                 `Msg proc count: ${msg.from.messageProcessed}\n`+

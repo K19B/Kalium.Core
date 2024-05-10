@@ -34,6 +34,12 @@ export enum maiLoginType
     netId,
     friend
 }
+export enum chatType{
+    PRIVATE,
+    GROUP,
+    SUPER_GROUP,
+    CHANNEL
+}
 export class maiData{
     id: number
     server: regMaiServer
@@ -123,10 +129,64 @@ export function rendering(f: string, b: string, content: string)
 {
     return `${b}${f}${content}${color.reset}`;
 }
+export class Chat{
+    _id: bigint
+    type: chatType
+    username: string
+    firstname: string
+    lastname: string
+
+    get isGroup(){
+        return this.type === chatType.GROUP || this.type === chatType.SUPER_GROUP;
+    }
+    get isPrivate(){
+        return this.type === chatType.PRIVATE;
+    }
+    get isChannel(){
+        return this.type === chatType.CHANNEL;
+    }
+    get name(){
+        return `${this.firstname} ${this.lastname}`;
+    }
+    get id(): string{
+        return this._id.toString();
+    }
+    set id(v: number| string){
+        this._id = BigInt(v);
+    }
+
+    constructor(i: number| string,
+                t: chatType,
+                u: string|undefined,
+                f: string|undefined,
+                l: string|undefined)
+    {
+        this.id = i;
+        this.type = t;
+        this.username = u ?? "";
+        this.firstname = f ?? "";
+        this.lastname = l ?? "";
+    }
+    static parse(chat: nodeBot.Chat): Chat {
+        let m = new Map<nodeBot.ChatType,chatType>([
+            ["private",chatType.PRIVATE],
+            ["group",chatType.GROUP],
+            ["supergroup",chatType.SUPER_GROUP],
+            ["channel",chatType.CHANNEL]
+        ])
+        return new Chat(
+                chat.id,
+                m.get(chat.type)!,
+                chat.username,
+                chat.first_name,
+                chat.last_name);
+    }
+
+}
 export class message{
     id: number
     from: User
-    chat: nodeBot.Chat
+    chat: Chat
     text: string | undefined
     audio: Audio | undefined
     document: Document | undefined
@@ -135,7 +195,7 @@ export class message{
     client: nodeBot | undefined
     lang: string | undefined
 
-    constructor(id: number, from: nodeBot.User, chat: nodeBot.Chat, command: command | undefined)
+    constructor(id: number, from: nodeBot.User, chat: Chat, command: command | undefined)
     {
         this.id = id;
         this.from = User.parse(from)!;
@@ -150,14 +210,14 @@ export class message{
     }
 
     // If chat is private,return true
-    isPrivate(): boolean 
+    get isPrivate(): boolean 
     {
-        return this.chat.type === "private";
+        return this.chat.isPrivate;
     }
     // If chat is Group or SuperGroup,return true
-    isGroup(): boolean
+    get isGroup(): boolean
     {
-        return this.chat.type === "group" || this.chat.type === "supergroup";
+        return this.chat.isGroup;
     }
     // Send a new message and reply
     // Return: Sended message
@@ -222,7 +282,7 @@ export class message{
                 let prefix: string = array[0].replace("/","");
                 pCommand = new command(prefix,array.slice(1));
             }
-            let msg = new message(botMsg.message_id, botMsg.from!, botMsg.chat!, pCommand)
+            let msg = new message(botMsg.message_id, botMsg.from!, Chat.parse(botMsg.chat)!, pCommand)
             msg.text = content;
             msg.audio = botMsg.audio;
             msg.document = botMsg.document;
