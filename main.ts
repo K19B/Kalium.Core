@@ -130,7 +130,7 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
             ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`, logLevel.debug);
         msg.from.commandProcessed++;
         await msg.from.save(DB);
-        commandHandle(msg);
+        await commandHandle(msg);
     }
     catch(e:any)
     {
@@ -139,9 +139,16 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
 }
 
 // Bot Commands
-function commandHandle(msg: message): void
+async function commandHandle(msg: message): Promise<void>
 {
-    let command = msg.command as command;
+    let command = msg.command!;
+    let supportCmds = (await bot.getMyCommands()).map(x => x.command.replace("/",""));
+    
+    if(!msg.chat?.allowPrefix)
+        msg.chat.allowPrefix = supportCmds;
+    else if(!msg.chat.canExecute(command.prefix))
+        return;
+    
     switch(command.prefix)
     {
         case "userinfo":

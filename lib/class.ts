@@ -4,8 +4,6 @@ import { $Enums, PrismaClient } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
 import { YamlSerializer, file } from './config';
 import { musicScore } from '../../kalium-vanilla-mai/class';
-import internal from 'stream';
-import { ms } from 'date-fns/locale';
 
 export enum logLevel {
     fatal = 9,
@@ -134,8 +132,9 @@ export class Chat{
     _id: bigint
     type: chatType
     username: string
-    firstname: string
-    lastname: string
+    name: string
+
+    allowPrefix: string[]|undefined = undefined;
 
     get isGroup(){
         return this.type === chatType.GROUP || this.type === chatType.SUPER_GROUP;
@@ -146,27 +145,45 @@ export class Chat{
     get isChannel(){
         return this.type === chatType.CHANNEL;
     }
-    get name(){
-        return `${this.firstname} ${this.lastname}`;
-    }
     get id(): string{
         return this._id.toString();
     }
     set id(v: number| string){
         this._id = BigInt(v);
     }
+    addCmd(cmd: string): void {
+        if (!this.allowPrefix)
+            return;
+        else if (this.allowPrefix.includes(cmd))
+            return;
 
+        this.allowPrefix.push(cmd);
+    }
+    delCmd(cmd: string): void {
+        if (!this.allowPrefix)
+            return;
+        else if (!this.allowPrefix.includes(cmd))
+            return;
+
+        this.allowPrefix = this.allowPrefix.filter(x => x != cmd);
+    }
+    canExecute(cmd: string): boolean {
+        if (!this.allowPrefix)
+            return false;
+        else
+            return this.allowPrefix.includes(cmd) || this.isPrivate;
+    }
     constructor(i: number| string,
                 t: chatType,
                 u: string|undefined,
-                f: string|undefined,
-                l: string|undefined)
+                n: string|undefined,
+                c: string[]| undefined = undefined)
     {
         this.id = i;
         this.type = t;
         this.username = u ?? "";
-        this.firstname = f ?? "";
-        this.lastname = l ?? "";
+        this.name = n ?? "";
+        this.allowPrefix = c;
     }
     static parse(chat: nodeBot.Chat): Chat {
         let m = new Map<nodeBot.ChatType,chatType>([
@@ -179,10 +196,83 @@ export class Chat{
                 chat.id,
                 m.get(chat.type)!,
                 chat.username,
-                chat.first_name,
-                chat.last_name);
+                chat.title ?? `${chat.first_name ?? ""} ${chat.last_name ?? ""}`);
     }
-
+    static async search(db: PrismaClient,id: bigint): Promise<Chat|undefined> {
+        let result: Chat|undefined = undefined;
+        let r = await db.chat.findUnique({
+            where: {
+                id : id as bigint
+            }
+        });
+        if(r != undefined)
+            result = this.convert(r);
+        return result;
+    }
+    async save(db: PrismaClient): Promise<void> {
+        let data = this.makeData();
+        
+        if(data == undefined)
+            return;
+        if(await Chat.search(db,BigInt(this.id)) != undefined)
+        {
+            await db.chat.update({
+                where: {
+                    id: BigInt(this.id)
+                },
+                data: data
+            });
+        }
+        else
+            await db.chat.create({data: data});
+    }
+    makeData(): ({
+        id: bigint;
+        type: $Enums.chatType;
+        username: string;
+        name: string;
+        allowPrefix: string[]| undefined
+    })| undefined {
+        let m = new Map<chatType,$Enums.chatType>([
+            [chatType.CHANNEL,$Enums.chatType.CHANNEL],
+            [chatType.GROUP,$Enums.chatType.GROUP],
+            [chatType.PRIVATE,$Enums.chatType.PRIVATE],
+            [chatType.SUPER_GROUP,$Enums.chatType.SUPER_GROUP]
+        ])
+        return {
+            id: BigInt(this.id),
+            type: m.get(this.type)!,
+            username: this.username,
+            name: this.name,
+            allowPrefix: this.allowPrefix
+        }
+    }
+    static convert(dbChat: {
+        id: bigint;
+        type: $Enums.chatType;
+        username: string;
+        name: string;
+        allowPrefix: string[]| undefined
+    }): Chat| undefined {
+        try
+        {
+            let m = new Map<$Enums.chatType,chatType>([
+                [$Enums.chatType.CHANNEL,chatType.CHANNEL],
+                [$Enums.chatType.GROUP,chatType.GROUP],
+                [$Enums.chatType.PRIVATE,chatType.PRIVATE],
+                [$Enums.chatType.SUPER_GROUP,chatType.SUPER_GROUP]
+            ])
+            return new Chat(dbChat.id.toString(),
+                            m.get(dbChat.type)!,
+                            dbChat.username,
+                            dbChat.name,
+                            dbChat.allowPrefix);
+        }
+        catch
+        {
+            return undefined;
+        }
+    }
 }
 export class message{
     id: number

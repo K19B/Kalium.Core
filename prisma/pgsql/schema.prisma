@@ -38,6 +38,19 @@ enum musicDifficulty {
     ReMASTER
     UTAGE
 }
+enum chatType {
+    PRIVATE
+    GROUP
+    SUPER_GROUP
+    CHANNEL
+}
+model Chat {
+    id BigInt @unique
+    type chatType
+    username String
+    name String
+    allowPrefix String[]
+}
 model musicScore {
     name String @unique
     level String
