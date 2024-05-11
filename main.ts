@@ -4,7 +4,7 @@ import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { maiRankJp } from '../kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import { logger, message, command, User, logLevel, rendering, cliCommand } from './lib/class';
+import { logger, message, command, User, logLevel, rendering, cliCommand, permission } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
 import { config } from './lib/config';
@@ -185,6 +185,9 @@ async function commandHandle(msg: message): Promise<void>
         break;
         case "karcCalc":
             arcCalc(msg);
+            break;
+        case "kset":
+            groupSetting(msg);
         break;
     }
 }
@@ -265,6 +268,51 @@ function netQuery(msg: message): void
     }
     // Finish Check
     msg.reply(checkFqdn + checkUrl);
+}
+function groupSetting(msg: message): void {
+
+    // /kset cmd +<cmd>  add new cmd to group allowCmds
+    // /kset cmd -<cmd>  remove a cmd from group allowCmds
+
+    let cmd = msg.command!;
+    if (!msg.from.checkPermission(permission.admin)) {
+        msg.reply("Permission Denied");
+        return;
+    }
+    else if(cmd.content.length < 1) {
+        msg.reply("Invaild param");
+        return;
+    }
+    let prefix = cmd.content[0];
+    let cmdManager = async (msg: message) => {
+        let cmd = msg.command!;
+        if(cmd.content.length < 2 || cmd.content[1].length < 2) {
+            msg.reply("Invaild param");
+            return;
+        }
+        let op = cmd.content[1][0];
+        let uCmd = cmd.content[1].slice(1,cmd.content[1].length - 1);
+        let botSupprort = (await bot.getMyCommands()).map( x => x.command);
+
+        if(!botSupprort.includes(uCmd)) {
+            msg.reply("Invaild command");
+            return;
+        }
+        let group = msg.chat;
+        if(op == "-" && group.allowPrefix!.includes(uCmd))
+            group.allowPrefix = group.allowPrefix?.filter( x => x != uCmd);
+        else if (op == "-" && !group.allowPrefix!.includes(uCmd))
+            group.allowPrefix!.push(uCmd);
+        await group.save(DB);
+        msg.reply("Success");
+    };
+
+    switch(prefix)
+    {
+        case "cmd":
+            cmdManager(msg);
+        break;
+    }
 }
 
 // Kalium Bot Functions
