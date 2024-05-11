@@ -275,7 +275,11 @@ function groupSetting(msg: message): void {
     // /kset cmd -<cmd>  remove a cmd from group allowCmds
 
     let cmd = msg.command!;
-    if (!msg.from.checkPermission(permission.admin)) {
+    if(msg.isPrivate) {
+        msg.reply("This command can only be used within the group");
+        return;
+    }
+    else if (!msg.from.checkPermission(permission.admin)) {
         msg.reply("Permission Denied");
         return;
     }
