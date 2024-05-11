@@ -39,18 +39,12 @@ enum musicDifficulty {
     UTAGE
 }
 enum chatType {
-    PRIVATE
-    GROUP
-    SUPER_GROUP
-    CHANNEL
+    private
+    group
+    superGroup
+    channel
 }
-model Chat {
-    id BigInt @unique
-    type chatType
-    username String
-    name String
-    allowPrefix String[]
-}
+
 model musicScore {
     name String @unique
     level String
@@ -73,14 +67,17 @@ model maiAccount {
     maiAlterId String
     maiAlterToken String
 } 
-model user {
+model chat {
     id BigInt @unique
     username String
+    type chatType
     firstname String
     lastname String
+    name String
     level permission
     messageProcessed Int
     commandProcessed Int
     registered DateTime
     lastSeen DateTime
+    commandEnabled String[]
 }

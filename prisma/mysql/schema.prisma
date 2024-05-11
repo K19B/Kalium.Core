@@ -30,9 +30,36 @@ enum permission {
     admin
     owner
 }
+enum musicDifficulty {
+    BASIC
+    ADVANCED
+    EXPERT
+    MASTER
+    ReMASTER
+    UTAGE
+}
+enum chatType {
+    private
+    group
+    superGroup
+    channel
+}
 
-model maiAccount{
-    id Int @unique
+model musicScore {
+    name String @unique
+    level String
+    difficulty  musicDifficulty
+    score Float
+    dxScore Int
+}
+model maiData {
+    id BigInt @unique
+    server regMaiServer
+    loginType maiLoginType
+    data String
+}
+model maiAccount {
+    id BigInt @unique
     server regMaiServer
     loginType maiLoginType
     maiId String
@@ -40,10 +67,17 @@ model maiAccount{
     maiAlterId String
     maiAlterToken String
 } 
-model user {
-    Id Int @unique
-    Username String
-    Firstname String
-    Lastname String
-    Level permission
+model chat {
+    id BigInt @unique
+    username String
+    type chatType
+    firstname String
+    lastname String
+    name String
+    level permission
+    messageProcessed Int
+    commandProcessed Int
+    registered DateTime
+    lastSeen DateTime
+    commandEnabled String
 }
