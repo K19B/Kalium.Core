@@ -143,10 +143,12 @@ async function commandHandle(msg: message): Promise<void>
 {
     let command = msg.command!;
     let supportCmds = (await bot.getMyCommands()).map(x => x.command.replace("/",""));
-    
-    if(!msg.chat?.allowPrefix)
+
+    if (!msg.chat?.allowPrefix) {
         msg.chat.allowPrefix = supportCmds;
-    else if(!msg.chat.canExecute(command.prefix))
+        msg.chat.save(DB);
+    }
+    else if (!msg.chat.canExecute(command.prefix))
         return;
     
     switch(command.prefix)
