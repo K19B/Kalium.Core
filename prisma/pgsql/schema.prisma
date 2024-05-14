@@ -73,11 +73,11 @@ model chat {
     type chatType
     firstname String
     lastname String
-    name String
+    title String?
     level permission
     messageProcessed Int
     commandProcessed Int
-    registered DateTime
-    lastSeen DateTime
+    registered DateTime?
+    lastSeen DateTime?
     commandEnabled String[]
 }

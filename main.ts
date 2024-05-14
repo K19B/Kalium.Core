@@ -87,11 +87,11 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
 
         if (msg.isGroup)
             logger.debug(recHeader +
-                `${rendering(color.bGreen, color.fBlack, ` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.id}) `)}` +
+                `${rendering(color.bGreen, color.fBlack, ` C:${msg.chat.id} U:${msg.from.name}(${msg.from.id}) `)}` +
                 ` ${msg.text ?? "EMPTY"}`);
         else
             logger.debug(recHeader +
-                `${rendering(color.bGreen, color.fBlack, ` U:${msg.from.getName()}(${msg.from.id}) `)}` +
+                `${rendering(color.bGreen, color.fBlack, ` U:${msg.from.name}(${msg.from.id}) `)}` +
                 ` ${msg.text ?? "EMPTY"}`);
 
         // Telegram User infomation update
@@ -143,12 +143,13 @@ async function commandHandle(msg: message): Promise<void>
 {
     let command = msg.command!;
     let supportCmds = (await bot.getMyCommands()).map(x => x.command.replace("/",""));
+    let user = msg.from;
 
-    if (!msg.chat?.allowPrefix) {
-        msg.chat.allowPrefix = supportCmds;
-        msg.chat.save(DB);
+    if (!user.commandEnable) {
+        user.commandEnable = supportCmds;
+        user.save(DB);
     }
-    else if (!msg.chat.canExecute(command.prefix))
+    else if (!user.canExecute(command.prefix,msg))
         return;
     
     switch(command.prefix)
@@ -203,14 +204,14 @@ function getUserInfo(msg: message): void
     let userId = msg.from.id;
     let resp = 'Welcome to use Kalium.Core\n```\n' + 
                 `- User Info\n`+
-                `Name: ${msg.from.getName()}\n`+
+                `Name: ${msg.from.name}\n`+
                 `ID  : ${userId}\n`+
                 `${msg.isPrivate ? `Lang: ${msg.lang}\n`:``}`+
                 `Permission: ${p.get(msg.from.level)}\n\n`+
                 `- Analyzer\n`+
                 `Msg proc count: ${msg.from.messageProcessed}\n`+
                 `Cmd proc count: ${msg.from.commandProcessed}\n`+
-                `Register at   : ${format(msg.from.registered,"yyyy-MM-dd HH:mm:ss")}` +
+                `Register at   : ${msg.from.registered ? format(msg.from.registered,"yyyy-MM-dd HH:mm:ss") : "Unavailable"}` +
                '\n```';
     msg.reply(resp);
 }
@@ -302,11 +303,11 @@ function groupSetting(msg: message): void {
             msg.reply("Invaild command");
             return;
         }
-        let group = msg.chat;
-        if(op == "-" && group.allowPrefix!.includes(uCmd))
-            group.allowPrefix = group.allowPrefix?.filter( x => x != uCmd);
-        else if (op == "-" && !group.allowPrefix!.includes(uCmd))
-            group.allowPrefix!.push(uCmd);
+        let group = msg.from;
+        if(op == "-" && group.commandEnable!.includes(uCmd))
+            group.commandEnable = group.commandEnable?.filter( x => x != uCmd);
+        else if (op == "-" && !group.commandEnable!.includes(uCmd))
+            group.commandEnable!.push(uCmd);
         await group.save(DB);
         msg.reply("Success");
     };

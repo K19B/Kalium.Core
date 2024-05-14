@@ -4,6 +4,7 @@ import { $Enums, PrismaClient } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
 import { YamlSerializer, file } from './config';
 import { musicScore } from '../../kalium-vanilla-mai/class';
+import { title } from 'process';
 
 export enum logLevel {
     fatal = 9,
@@ -128,156 +129,10 @@ export function rendering(f: string, b: string, content: string)
 {
     return `${b}${f}${content}${color.reset}`;
 }
-export class Chat{
-    _id: bigint
-    type: chatType
-    username: string
-    name: string
-
-    allowPrefix: string[]|undefined = undefined;
-
-    get isGroup(){
-        return this.type === chatType.GROUP || this.type === chatType.SUPER_GROUP;
-    }
-    get isPrivate(){
-        return this.type === chatType.PRIVATE;
-    }
-    get isChannel(){
-        return this.type === chatType.CHANNEL;
-    }
-    get id(): string{
-        return this._id.toString();
-    }
-    set id(v: number| string){
-        this._id = BigInt(v);
-    }
-    addCmd(cmd: string): void {
-        if (!this.allowPrefix)
-            return;
-        else if (this.allowPrefix.includes(cmd))
-            return;
-
-        this.allowPrefix.push(cmd);
-    }
-    delCmd(cmd: string): void {
-        if (!this.allowPrefix)
-            return;
-        else if (!this.allowPrefix.includes(cmd))
-            return;
-
-        this.allowPrefix = this.allowPrefix.filter(x => x != cmd);
-    }
-    canExecute(cmd: string): boolean {
-        if (!this.allowPrefix)
-            return false;
-        else
-            return this.allowPrefix.includes(cmd) || this.isPrivate;
-    }
-    constructor(i: number| string,
-                t: chatType,
-                u: string|undefined,
-                n: string|undefined,
-                c: string[]| undefined = undefined)
-    {
-        this.id = i;
-        this.type = t;
-        this.username = u ?? "";
-        this.name = n ?? "";
-        this.allowPrefix = c;
-    }
-    static parse(chat: nodeBot.Chat): Chat {
-        let m = new Map<nodeBot.ChatType,chatType>([
-            ["private",chatType.PRIVATE],
-            ["group",chatType.GROUP],
-            ["supergroup",chatType.SUPER_GROUP],
-            ["channel",chatType.CHANNEL]
-        ])
-        return new Chat(
-                chat.id,
-                m.get(chat.type)!,
-                chat.username,
-                chat.title ?? `${chat.first_name ?? ""} ${chat.last_name ?? ""}`);
-    }
-    static async search(db: PrismaClient,id: bigint): Promise<Chat|undefined> {
-        let result: Chat|undefined = undefined;
-        let r = await db.chat.findUnique({
-            where: {
-                id : id as bigint
-            }
-        });
-        if(r != undefined)
-            result = this.convert(r);
-        return result;
-    }
-    async save(db: PrismaClient): Promise<void> {
-        let data = this.makeData();
-        
-        if(data == undefined)
-            return;
-        if(await Chat.search(db,BigInt(this.id)) != undefined)
-        {
-            await db.chat.update({
-                where: {
-                    id: BigInt(this.id)
-                },
-                data: data
-            });
-        }
-        else
-            await db.chat.create({data: data});
-    }
-    makeData(): ({
-        id: bigint;
-        type: $Enums.chatType;
-        username: string;
-        name: string;
-        allowPrefix: string[]| undefined
-    })| undefined {
-        let m = new Map<chatType,$Enums.chatType>([
-            [chatType.CHANNEL,$Enums.chatType.CHANNEL],
-            [chatType.GROUP,$Enums.chatType.GROUP],
-            [chatType.PRIVATE,$Enums.chatType.PRIVATE],
-            [chatType.SUPER_GROUP,$Enums.chatType.SUPER_GROUP]
-        ])
-        return {
-            id: BigInt(this.id),
-            type: m.get(this.type)!,
-            username: this.username,
-            name: this.name,
-            allowPrefix: this.allowPrefix
-        }
-    }
-    static convert(dbChat: {
-        id: bigint;
-        type: $Enums.chatType;
-        username: string;
-        name: string;
-        allowPrefix: string[]| undefined
-    }): Chat| undefined {
-        try
-        {
-            let m = new Map<$Enums.chatType,chatType>([
-                [$Enums.chatType.CHANNEL,chatType.CHANNEL],
-                [$Enums.chatType.GROUP,chatType.GROUP],
-                [$Enums.chatType.PRIVATE,chatType.PRIVATE],
-                [$Enums.chatType.SUPER_GROUP,chatType.SUPER_GROUP]
-            ])
-            return new Chat(dbChat.id.toString(),
-                            m.get(dbChat.type)!,
-                            dbChat.username,
-                            dbChat.name,
-                            dbChat.allowPrefix);
-        }
-        catch
-        {
-            return undefined;
-        }
-    }
-}
 export class message{
     id: number
     from: User
-    chat: Chat
+    chat: nodeBot.Chat
     text: string | undefined
     audio: Audio | undefined
     document: Document | undefined
@@ -286,10 +141,13 @@ export class message{
     client: nodeBot | undefined
     lang: string | undefined
 
-    constructor(id: number, from: nodeBot.User, chat: Chat, command: command | undefined)
+    type: chatType
+
+    constructor(id: number, from: nodeBot.User, chat: nodeBot.Chat, command: command | undefined)
     {
         this.id = id;
         this.from = User.parse(from)!;
+        this.from.title = chat.title;
         this.chat = chat;
         this.command = command;
         if(command !== undefined)
@@ -301,14 +159,16 @@ export class message{
     }
 
     // If chat is private,return true
-    get isPrivate(): boolean 
-    {
-        return this.chat.isPrivate;
+    
+    get isPrivate(){
+        return this.type === chatType.PRIVATE;
     }
     // If chat is Group or SuperGroup,return true
-    get isGroup(): boolean
-    {
-        return this.chat.isGroup;
+    get isGroup(){
+        return this.type === chatType.GROUP || this.type === chatType.SUPER_GROUP;
+    }
+    get isChannel(){
+        return this.type === chatType.CHANNEL;
     }
     // Send a new message and reply
     // Return: Sended message
@@ -397,7 +257,7 @@ export class message{
                 let prefix: string = array[0].replace("/","");
                 pCommand = new command(prefix,array.slice(1));
             }
-            let msg = new message(botMsg.message_id, botMsg.from!, Chat.parse(botMsg.chat)!, pCommand)
+            let msg = new message(botMsg.message_id, botMsg.from!, botMsg.chat, pCommand)
             msg.text = content;
             msg.audio = botMsg.audio;
             msg.document = botMsg.document;
@@ -562,33 +422,80 @@ export class maiAccount
         }
     }
 }
-export class User
+export class Chat
 {
     id: bigint
     username: string
-    firstname: string
-    lastname: string
-    level: permission = permission.default
     messageProcessed: number
     commandProcessed: number
-    registered: Date
-    lastSeen: Date
+    registered: Date|undefined
+    type: chatType
+    level: permission = permission.default
+
+    title: string|undefined = undefined;
+    commandEnable: string[]|undefined = undefined;
+
+    constructor(id: bigint,
+                username: string,
+                title: string|undefined
+    )
+    {
+        this.id = id;
+        this.username = username;
+        this.title = title;
+    }
+    get name(): string
+    {
+        return this.title ?? "";
+    }
+    addCmd(cmd: string): void {
+        if (!this.commandEnable)
+            return;
+        else if (this.commandEnable.includes(cmd))
+            return;
+
+        this.commandEnable.push(cmd);
+    }
+    delCmd(cmd: string): void {
+        if (!this.commandEnable)
+            return;
+        else if (!this.commandEnable.includes(cmd))
+            return;
+
+        this.commandEnable = this.commandEnable.filter(x => x != cmd);
+    }
+    canExecute(cmd: string,msg: message): boolean {
+        if (!this.commandEnable)
+            return false;
+        else
+            return this.commandEnable.includes(cmd) || msg.isPrivate;
+    }
+}
+export class User extends Chat
+{
+    firstname: string
+    lastname: string
+    lastSeen: Date|undefined
 
     constructor(id: bigint,
                 username: string,
                 fName: string,
-                lName: string
+                lName: string,
+                title: string|undefined = undefined
     )
     {
+        super(id,username,title);
         this.id = id;
         this.firstname = fName;
         this.lastname = lName;
         this.username = username;
     }
-    getName(): string
+    get name(): string
     {
-        return this.firstname + " " + this.lastname;
+        return this.title ?? this.firstname + " " + this.lastname;
     }
+    
+    
     checkPermission(targetLevel: permission): boolean
     {
         if(this.level >= targetLevel)
@@ -612,7 +519,7 @@ export class User
             return;
         if(await User.search(db,this.id) != undefined)
         {
-            await db.user.update({
+            await db.chat.update({
                 where: {
                     id: this.id as bigint
                 },
@@ -620,18 +527,21 @@ export class User
             });
         }
         else
-            await db.user.create({data: data});
+            await db.chat.create({data: data});
     }
     makeData(): ({
         id: bigint
         username: string
         firstname: string
         lastname: string
+        title: string| null
+        type: $Enums.chatType
         level: $Enums.permission
         messageProcessed: number
         commandProcessed: number
-        registered: Date
-        lastSeen: Date})|undefined
+        registered: Date|null
+        lastSeen: Date|null
+        commandEnabled: string[]|undefined})|undefined
     {
         try
         {
@@ -644,16 +554,25 @@ export class User
                     [permission.owner,$Enums.permission.owner]
                 ]
             );
+            let m = new Map<chatType,$Enums.chatType>([
+                [chatType.CHANNEL,$Enums.chatType.channel],
+                [chatType.GROUP,$Enums.chatType.group],
+                [chatType.PRIVATE,$Enums.chatType.private],
+                [chatType.SUPER_GROUP,$Enums.chatType.superGroup]
+            ])
             return {
                 id: this.id,
                 username : this.username,
                 firstname: this.firstname,
                 lastname: this.lastname,
+                type: m.get(this.type)!,
+                title: this.title ?? null,
                 level: permissions.get(this.level)!,
                 messageProcessed: this.messageProcessed,
                 commandProcessed: this.commandProcessed,
-                registered: this.registered,
-                lastSeen: this.lastSeen
+                registered: this.registered ?? null,
+                lastSeen: this.lastSeen ?? null,
+                commandEnabled: this.commandEnable
             };
         }
         catch
@@ -661,6 +580,8 @@ export class User
             return undefined;
         }
     }
+
+
     static async where(db: PrismaClient,func:(x: User) => boolean): Promise<User[]> {
         let result: User[] = await this.all(db);
 
@@ -673,7 +594,7 @@ export class User
     }
     static async search(db: PrismaClient,id: bigint): Promise<User|undefined> {
         let result: User|undefined = undefined;
-        let r = await db.user.findUnique({
+        let r = await db.chat.findUnique({
             where: {
                 id : id as bigint
             }
@@ -684,7 +605,7 @@ export class User
     }
     static async all(db: PrismaClient): Promise<User[]> {
         let result: User[] = [];
-        let r = await db.user.findMany()
+        let r = await db.chat.findMany()
         r.forEach(y => {
             let u = this.convert(y);
             if(u != undefined)
@@ -697,11 +618,14 @@ export class User
         username: string
         firstname: string
         lastname: string
+        title: string| null
+        type: $Enums.chatType
         level: $Enums.permission
         messageProcessed: number
         commandProcessed: number
-        registered: Date
-        lastSeen: Date}): User|undefined {
+        registered: Date | null
+        lastSeen: Date | null
+        commandEnabled: string[]|undefined}): User|undefined {
         try
         {
             let permissions: Map<$Enums.permission,permission> = new Map(
@@ -713,15 +637,24 @@ export class User
                     [$Enums.permission.owner,permission.owner]
                 ]
             );
+            let m = new Map<$Enums.chatType,chatType>([
+                [$Enums.chatType.channel,chatType.CHANNEL],
+                [$Enums.chatType.group,chatType.GROUP],
+                [$Enums.chatType.private,chatType.PRIVATE],
+                [$Enums.chatType.superGroup,chatType.SUPER_GROUP]
+            ])
             let user = new User(dbUser.id,
                 dbUser.username,
                 dbUser.firstname,
-                dbUser.lastname);
-            user.level = permissions.get(dbUser.level)!
+                dbUser.lastname,
+                dbUser.title ?? undefined);
+            user.level = permissions.get(dbUser.level)!;
+            user.type = m.get(dbUser.type)!;
             user.messageProcessed = dbUser.messageProcessed;
             user.commandProcessed = dbUser.commandProcessed;
-            user.registered = dbUser.registered;
-            user.lastSeen = dbUser.lastSeen;
+            user.registered = dbUser.registered ?? undefined;
+            user.lastSeen = dbUser.lastSeen ?? undefined;
+            user.commandEnable = dbUser.commandEnabled;
             return user;  
         }
         catch
