@@ -1,6 +1,6 @@
 import nodeBot, { Audio, Document, ParseMode, PhotoSize} from 'node-telegram-bot-api';
 import * as color from './color';
-import { $Enums, PrismaClient } from '@prisma/client';
+import { $Enums, PrismaClient, chat } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
 import { YamlSerializer, file } from './config';
 import { musicScore } from '../../kalium-vanilla-mai/class';
@@ -132,7 +132,7 @@ export function rendering(f: string, b: string, content: string)
 export class message{
     id: number
     from: User
-    chat: nodeBot.Chat
+    chat: Chat
     text: string | undefined
     audio: Audio | undefined
     document: Document | undefined
@@ -141,9 +141,8 @@ export class message{
     client: nodeBot | undefined
     lang: string | undefined
 
-    type: chatType
 
-    constructor(id: number, from: nodeBot.User, chat: nodeBot.Chat, command: command | undefined)
+    constructor(id: number, from: nodeBot.User, chat: Chat, command: command | undefined)
     {
         this.id = id;
         this.from = User.parse(from)!;
@@ -161,21 +160,21 @@ export class message{
     // If chat is private,return true
     
     get isPrivate(){
-        return this.type === chatType.PRIVATE;
+        return this.chat.type === chatType.PRIVATE;
     }
     // If chat is Group or SuperGroup,return true
     get isGroup(){
-        return this.type === chatType.GROUP || this.type === chatType.SUPER_GROUP;
+        return this.chat.type === chatType.GROUP || this.chat.type === chatType.SUPER_GROUP;
     }
     get isChannel(){
-        return this.type === chatType.CHANNEL;
+        return this.chat.type === chatType.CHANNEL;
     }
     // Send a new message and reply
     // Return: Sended message
     async reply(text: string,
                 parseMode: ParseMode = "Markdown"): Promise<message| undefined>
     {
-        let msg = await this.client!.sendMessage(this.chat.id, text, { parse_mode: parseMode, reply_to_message_id: this.id });
+        let msg = await this.client!.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode, reply_to_message_id: this.id });
 
         return message.parse(this.client!,msg);
     }
@@ -188,7 +187,7 @@ export class message{
         if(!(await this.canSend()))
             throw Error("Cannot edit this message.");
         let msg = await this.client!.editMessageText(newText,{ parse_mode: parseMode,
-                                                               chat_id: this.chat.id,
+                                                               chat_id: this.chat.id.toString(),
                                                                message_id: this.id }) as nodeBot.Message
 
         return message.parse(this.client!,msg);
@@ -198,14 +197,14 @@ export class message{
     // Return: If success,return true
     async delete(): Promise<boolean>
     {
-        return await this.client?.deleteMessage(this.chat.id,this.id)!;
+        return await this.client?.deleteMessage(this.chat.id.toString(),this.id)!;
     }
     async forward(desChat: string|number): Promise<message| undefined>
     {
         if(!this.client)
             return undefined;
 
-        let msg = await this.client?.forwardMessage(desChat,this.chat.id,this.id);
+        let msg = await this.client?.forwardMessage(desChat,this.chat.id.toString(),this.id);
 
         if(!msg)
             return undefined;
@@ -216,7 +215,7 @@ export class message{
     async send(text: string,
                parseMode: ParseMode = "Markdown"): Promise<message| undefined> 
     {
-        let msg = await this.client!.sendMessage(this.chat.id, text, { parse_mode: parseMode })
+        let msg = await this.client!.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode })
 
         return message.parse(this.client!,msg);
     }
@@ -257,7 +256,7 @@ export class message{
                 let prefix: string = array[0].replace("/","");
                 pCommand = new command(prefix,array.slice(1));
             }
-            let msg = new message(botMsg.message_id, botMsg.from!, botMsg.chat, pCommand)
+            let msg = new message(botMsg.message_id, botMsg.from!, Chat.parse(botMsg.chat)!, pCommand)
             msg.text = content;
             msg.audio = botMsg.audio;
             msg.document = botMsg.document;
@@ -470,42 +469,11 @@ export class Chat
         else
             return this.commandEnable.includes(cmd) || msg.isPrivate;
     }
-}
-export class User extends Chat
-{
-    firstname: string
-    lastname: string
-    lastSeen: Date|undefined
-
-    constructor(id: bigint,
-                username: string,
-                fName: string,
-                lName: string,
-                title: string|undefined = undefined
-    )
-    {
-        super(id,username,title);
-        this.id = id;
-        this.firstname = fName;
-        this.lastname = lName;
-        this.username = username;
-    }
-    get name(): string
-    {
-        return this.title ?? this.firstname + " " + this.lastname;
-    }
-    
-    
     checkPermission(targetLevel: permission): boolean
     {
         if(this.level >= targetLevel)
             return true;
         return false;
-    }
-    update(u: User): void {
-        this.firstname = u.firstname;
-        this.username = u.username;
-        this.lastname = u.lastname;
     }
     async setPermission(targetLevel: permission,db: PrismaClient): Promise<void>
     {
@@ -529,11 +497,61 @@ export class User extends Chat
         else
             await db.chat.create({data: data});
     }
+    static parse(chat: nodeBot.Chat|undefined): Chat| undefined{
+        if(!chat)
+            return undefined;
+        let result = new Chat(BigInt(chat.id),
+                              chat.username ?? "",
+                              chat.title);
+        let m = new Map<nodeBot.ChatType,chatType>(
+        [
+            ["private",chatType.PRIVATE],
+            ["channel",chatType.CHANNEL],
+            ["group",chatType.GROUP],
+            ["supergroup",chatType.SUPER_GROUP]
+        ]); 
+        result.type = m.get(chat.type)!;
+        return result;
+    }
+}
+export class User extends Chat
+{
+    firstname: string| undefined = undefined
+    lastname: string| undefined = undefined
+    lastSeen: Date|undefined = undefined
+
+    constructor(id: bigint,
+                username: string,
+                fName: string| undefined,
+                lName: string| undefined,
+                title: string|undefined = undefined
+    )
+    {
+        super(id,username,title);
+        this.id = id;
+        this.firstname = fName;
+        this.lastname = lName;
+        this.username = username;
+    }
+    get name(): string
+    {
+        return this.title ?? this.firstname + " " + this.lastname;
+    }
+    
+    
+    
+    update(u: User): void {
+        this.firstname = u.firstname;
+        this.username = u.username;
+        this.lastname = u.lastname;
+    }
+    
+    
     makeData(): ({
         id: bigint
         username: string
-        firstname: string
-        lastname: string
+        firstname: string| null
+        lastname: string| null
         title: string| null
         type: $Enums.chatType
         level: $Enums.permission
@@ -563,8 +581,8 @@ export class User extends Chat
             return {
                 id: this.id,
                 username : this.username,
-                firstname: this.firstname,
-                lastname: this.lastname,
+                firstname: this.firstname ?? null,
+                lastname: this.lastname ?? null,
                 type: m.get(this.type)!,
                 title: this.title ?? null,
                 level: permissions.get(this.level)!,
@@ -616,8 +634,8 @@ export class User extends Chat
     static convert(dbUser: {
         id: bigint
         username: string
-        firstname: string
-        lastname: string
+        firstname: string| null
+        lastname: string| null
         title: string| null
         type: $Enums.chatType
         level: $Enums.permission
@@ -645,8 +663,8 @@ export class User extends Chat
             ])
             let user = new User(dbUser.id,
                 dbUser.username,
-                dbUser.firstname,
-                dbUser.lastname,
+                dbUser.firstname ?? undefined,
+                dbUser.lastname ?? undefined,
                 dbUser.title ?? undefined);
             user.level = permissions.get(dbUser.level)!;
             user.type = m.get(dbUser.type)!;
@@ -662,7 +680,7 @@ export class User extends Chat
             return undefined;
         }
     }
-    static parse(u: nodeBot.User|undefined): User|undefined
+    static parse(u: nodeBot.User|nodeBot.Chat|undefined): User|undefined
     {
         if(u == undefined) return undefined;
 

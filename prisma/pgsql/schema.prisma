@@ -48,7 +48,7 @@ enum chatType {
 model musicScore {
     name String @unique
     level String
-    difficulty  musicDifficulty
+    difficulty musicDifficulty
     score Float
     dxScore Int
 }
@@ -71,13 +71,13 @@ model chat {
     id BigInt @unique
     username String
     type chatType
-    firstname String
-    lastname String
+    firstname String?
+    lastname String?
     title String?
     level permission
     messageProcessed Int
     commandProcessed Int
-    registered DateTime?
-    lastSeen DateTime?
+    registered DateTime
+    lastSeen DateTime
     commandEnabled String[]
 }
