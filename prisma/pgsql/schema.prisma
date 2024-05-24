@@ -77,7 +77,7 @@ model chat {
     level permission
     messageProcessed Int
     commandProcessed Int
-    registered DateTime
-    lastSeen DateTime
+    registered DateTime?
+    lastSeen DateTime?
     commandEnabled String[]
 }
