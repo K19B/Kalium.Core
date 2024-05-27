@@ -14,39 +14,35 @@ export enum logLevel {
     debug = 0,
     slient = -1
 }
-export enum permission
-{
+export enum permission {
     disabled = -1,
     default,
     whiteListed,
     admin,
     owner = 19
 }
-export enum regMaiServer
-{
+export enum regMaiServer {
     JP,
     Intl,
     CN
 }
-export enum maiLoginType
-{
+export enum maiLoginType {
     sega,
     netId,
     friend
 }
-export enum chatType{
+export enum chatType {
     PRIVATE,
     GROUP,
     SUPER_GROUP,
     CHANNEL
 }
-export class maiData{
+export class maiData {
     id: number
     server: regMaiServer
     data: musicScore[]
 
-    constructor(i: number,s: regMaiServer,d: musicScore[])
-    {
+    constructor(i: number,s: regMaiServer,d: musicScore[]) {
         this.id = i;
         this.server = s;
         this.data = d;
@@ -81,7 +77,7 @@ export class maiData{
         return new maiData(d.id,s!,list);
     }
 }
-export class cliCommand{
+export class cliCommand {
     content: string
     prefix: string
     constructor(content: string) {
@@ -125,11 +121,10 @@ export class logger {
         }
     }
 }
-export function rendering(f: string, b: string, content: string)
-{
+export function rendering(f: string, b: string, content: string) {
     return `${b}${f}${content}${color.reset}`;
 }
-export class message{
+export class message {
     id: number
     from: Chat
     chat: Chat
@@ -141,9 +136,7 @@ export class message{
     client: nodeBot | undefined
     lang: string | undefined
 
-
-    constructor(id: number, from: nodeBot.User, chat: Chat, command: command | undefined)
-    {
+    constructor(id: number, from: nodeBot.User, chat: Chat, command: command | undefined) {
         this.id = id;
         this.from = new Chat(BigInt(from.id),from.username ?? "",from.first_name,from.last_name,undefined);
         this.from.title = chat.title;
@@ -160,14 +153,14 @@ export class message{
 
     // If chat is private,return true
     
-    get isPrivate(){
+    get isPrivate() {
         return this.chat.type === chatType.PRIVATE;
     }
     // If chat is Group or SuperGroup,return true
-    get isGroup(){
+    get isGroup() {
         return this.chat.type === chatType.GROUP || this.chat.type === chatType.SUPER_GROUP;
     }
-    get isChannel(){
+    get isChannel() {
         return this.chat.type === chatType.CHANNEL;
     }
     // Send a new message and reply
@@ -176,7 +169,6 @@ export class message{
                 parseMode: ParseMode = "Markdown"): Promise<message| undefined>
     {
         let msg = await this.client!.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode, reply_to_message_id: this.id });
-
         return message.parse(this.client!,msg);
     }
     // Edit this message.
@@ -196,12 +188,10 @@ export class message{
     // Delete this message
     // If you aren't this message sender or no have corresponding authority,this action will make a error
     // Return: If success,return true
-    async delete(): Promise<boolean>
-    {
+    async delete(): Promise<boolean> {
         return await this.client?.deleteMessage(this.chat.id.toString(),this.id)!;
     }
-    async forward(desChat: string|number): Promise<message| undefined>
-    {
+    async forward(desChat: string|number): Promise<message| undefined> {
         if(!this.client)
             return undefined;
 
@@ -279,7 +269,7 @@ export class message{
         return false;
     }
 }
-export class command{
+export class command {
     prefix: string
     content: string[]
     constructor (prefix: string, content: string[]) {
@@ -287,8 +277,7 @@ export class command{
         this.content = content;
     }
 }
-export class maiAccount
-{
+export class maiAccount {
     id: bigint
     server: regMaiServer
     loginType: maiLoginType
@@ -297,7 +286,7 @@ export class maiAccount
     maiAlterId: string | undefined
     maiAlterToken: string | undefined
 
-    constructor(id: bigint,server: regMaiServer){
+    constructor(id: bigint,server: regMaiServer) {
         this.id = id;
         this.server = server;
         this.maiId;
@@ -344,8 +333,7 @@ export class maiAccount
                 maiAlterToken: this.maiAlterToken ?? ""
             };
         }
-        catch
-        {
+        catch {
             return undefined;
         }
     }
@@ -391,8 +379,7 @@ export class maiAccount
         maiAlterId: string
         maiAlterToken: string
     }): maiAccount|undefined {
-        try
-        {
+        try {
             let serverType: Map<$Enums.regMaiServer,regMaiServer> = new Map(
                 [
                     [$Enums.regMaiServer.JP,regMaiServer.JP],
@@ -416,14 +403,12 @@ export class maiAccount
         
             return user;  
         }
-        catch
-        {
+        catch {
             return undefined;
         }
     }
 }
-export class Chat
-{
+export class Chat {
     id: bigint
     username: string
     type: chatType
@@ -454,8 +439,7 @@ export class Chat
         this.username = username;
         this.title = title;
     }
-    get name(): string
-    {
+    get name(): string {
         return this.title ?? this.firstname + " " + this.lastname;
     }
     update(u: Chat): void {
@@ -486,14 +470,12 @@ export class Chat
         else
             return this.commandEnable.includes(cmd) || msg.isPrivate;
     }
-    checkPermission(targetLevel: permission): boolean
-    {
+    checkPermission(targetLevel: permission): boolean {
         if(this.level >= targetLevel)
             return true;
         return false;
     }
-    async setPermission(targetLevel: permission,db: PrismaClient): Promise<void>
-    {
+    async setPermission(targetLevel: permission,db: PrismaClient): Promise<void> {
         this.level = targetLevel;
         await this.save(db);
     }
@@ -511,8 +493,7 @@ export class Chat
         lastSeen: Date
         commandEnabled: string[]|undefined})|undefined
     {
-        try
-        {
+        try {
             let permissions: Map<permission,$Enums.permission> = new Map(
                 [
                     [permission.disabled,$Enums.permission.disabled],
@@ -543,8 +524,7 @@ export class Chat
                 commandEnabled: this.commandEnable
             };
         }
-        catch
-        {
+        catch {
             return undefined;
         }
     }
@@ -553,8 +533,7 @@ export class Chat
         
         if(data == undefined)
             return;
-        if(await Chat.search(db,this.id) != undefined)
-        {
+        if(await Chat.search(db,this.id) != undefined) {
             await db.chat.update({
                 where: {
                     id: this.id as bigint
@@ -578,8 +557,7 @@ export class Chat
         registered: Date
         lastSeen: Date
         commandEnabled: string[]|undefined}): Chat|undefined {
-        try
-        {
+        try {
             let permissions: Map<$Enums.permission,permission> = new Map(
                 [
                     [$Enums.permission.disabled,permission.disabled],
@@ -609,8 +587,7 @@ export class Chat
             chat.commandEnable = dbUser.commandEnabled;
             return chat;  
         }
-        catch
-        {
+        catch {
             return undefined;
         }
     }
@@ -645,7 +622,7 @@ export class Chat
         })
         return result;
     }
-    static parse(chat: nodeBot.Chat|undefined): Chat| undefined{
+    static parse(chat: nodeBot.Chat|undefined): Chat| undefined {
         if(!chat)
             return undefined;
 
