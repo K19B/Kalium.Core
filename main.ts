@@ -17,7 +17,7 @@ export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
 
 const VER = process.env.npm_package_version;
 const PLATFORM = os.platform();
-const STARTTIME :string = Date();
+const STARTTIME: string = Date();
 const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
 const DB = new PrismaClient({
     datasources: {
@@ -77,8 +77,7 @@ logger.debug(' Bot core started.\n');
 
 
 // Receive Messages
-async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | null): Promise<void>
-{
+async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | null): Promise<void> {
     try {
         const USERNAME: string = (await bot.getMe()).username as string;
         let Commands = await bot.getMyCommands();
@@ -161,8 +160,7 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
 }
 
 // Bot Commands
-async function commandHandle(msg: message): Promise<void>
-{
+async function commandHandle(msg: message): Promise<void> {
     let command = msg.command!;
     let supportCmds = (await bot.getMyCommands()).map(x => x.command.replace("/",""));
     let user = msg.from;
@@ -174,8 +172,7 @@ async function commandHandle(msg: message): Promise<void>
     else if (!user.canExecute(command.prefix,msg))
         return;
     
-    switch(command.prefix)
-    {
+    switch(command.prefix) {
         case "userinfo":
             getUserInfo(msg);
         break;
@@ -214,8 +211,7 @@ async function commandHandle(msg: message): Promise<void>
         break;
     }
 }
-function getUserInfo(msg: message): void
-{
+function getUserInfo(msg: message): void {
     let p = new Map([
         [-1, "Disabled"],
         [0,  "Default "],
@@ -224,50 +220,45 @@ function getUserInfo(msg: message): void
         [19,"Owner"],
     ])
     let userId = msg.from.id;
-    let resp = 'Welcome to use Kalium.Core\n```\n' + 
-                `- User Info\n`+
-                `Name: ${msg.from.name}\n`+
-                `ID  : ${userId}\n`+
-                `${msg.isPrivate ? `Lang: ${msg.lang}\n`:``}`+
-                `Permission: ${p.get(msg.from.level)}\n\n`+
-                `- Analyzer\n`+
-                `Msg proc count: ${msg.from.messageProcessed}\n`+
-                `Cmd proc count: ${msg.from.commandProcessed}\n`+
-                `Register at   : ${msg.from.registered ? format(msg.from.registered,"yyyy-MM-dd HH:mm:ss") : "Unavailable"}` +
+    let resp = 'Kalium User Info\n```\n' + 
+                `- Basic`+
+                `name      : ${msg.from.name}\n`+
+                `id        : ${userId}\n`+
+                `${msg.isPrivate ? `lang      : ${msg.lang}\n`:``}`+
+                `perm      : ${p.get(msg.from.level)}\n\n`+
+                `- Stat\n`+
+                `Proced MSG: ${msg.from.messageProcessed}\n`+
+                `Proced MSG: ${msg.from.commandProcessed}\n`+
+                `Register  : ${msg.from.registered ? format(msg.from.registered,"yyyy-MM-dd HH:mm:ss") : "Unavailable"}` +
                '\n```';
     msg.reply(resp);
 }
-function checkAlive(msg: message): void
-{
+function checkAlive(msg: message): void {
     let userId = msg.from.id;
     let resp = 'Kalium is alive.\nServer time: ' + Date();
     msg.reply(resp);
 }
-function getBotStatus(msg: message): void
-{
+function getBotStatus(msg: message): void {
     let userId = msg.from.id;
     let resp = 'Kalium Bot v' + VER + ' Status\n' +
                 '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
                 + Date();
     msg.reply(resp);
 }
-function wolHandle(msg: message): void
-{
+function wolHandle(msg: message): void {
     let userId = msg.from.id; 
-    if(userId == BigInt(1613650110))
-    {
+    if(userId == BigInt(1613650110)) {
         let resp = '`' + exec('wakeonlan', ['08:bf:b8:43:30:15']) + '`';
         msg.reply(resp);
     }
-    else
+    else {
         msg.reply("Permission Denied");
+    }
 }
-function fuckZzy(msg: message): void
-{
+function fuckZzy(msg: message): void {
     message.forward(bot,"@MBRFans",msg.chat.id.toString(),374741);
 }
-function netQuery(msg: message): void
-{
+function netQuery(msg: message): void {
     let domain = msg.command?.content.join(" ") as string;
     var checkFqdn = 'FQDN not detected\n';
     var checkUrl = 'URL not detected';
@@ -347,7 +338,8 @@ function serverTime() {
     let svt = new Date().toLocaleString("en-CA", {timeZone: "UTC", hour12: false});
     return svt;
 }
-function log(type: string, lvl: string, data: string) { // Deprecated, will remove later.
+function log(type: string, lvl: string, data: string) {
+    // Deprecated by new logger, will remove later.
     let logdata = serverTime() + ' ' + type + ' ' + lvl + ' ' + data + '\n';
     fs.writeFile(LOGNAME, logdata, { flag: 'a+' }, err => {});
 }
@@ -383,8 +375,6 @@ function err(from: string, stderr: string) {
            '---' + '\n' +
            'Kalium ' + VER + ', Kernel ' + KERNEL;
 }
-
-
 
 // Mai Rank Handler
 let maisegaId: undefined | string;
@@ -445,4 +435,3 @@ function arcCalc(msg: message): void
         }
     }
 }
-
