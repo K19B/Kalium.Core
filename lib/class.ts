@@ -131,7 +131,7 @@ export function rendering(f: string, b: string, content: string)
 }
 export class message{
     id: number
-    from: User
+    from: Chat
     chat: Chat
     text: string | undefined
     audio: Audio | undefined
@@ -145,8 +145,9 @@ export class message{
     constructor(id: number, from: nodeBot.User, chat: Chat, command: command | undefined)
     {
         this.id = id;
-        this.from = User.parse(from)!;
+        this.from = new Chat(BigInt(from.id),from.username ?? "",from.first_name,from.last_name,undefined);
         this.from.title = chat.title;
+        this.from.type = chatType.PRIVATE;
         this.chat = chat;
         this.command = command;
         if(command !== undefined)
@@ -425,27 +426,43 @@ export class Chat
 {
     id: bigint
     username: string
-    messageProcessed: number
-    commandProcessed: number
-    registered: Date|undefined
     type: chatType
+
+    firstname: string| undefined = undefined;
+    lastname: string| undefined = undefined;
+    title: string|undefined = undefined;
+    
     level: permission = permission.default
 
-    title: string|undefined = undefined;
+    registered: Date|undefined = undefined;
+    lastSeen: Date|undefined = undefined;
+
+    messageProcessed: number = 0;
+    commandProcessed: number = 0 ;
     commandEnable: string[]|undefined = undefined;
 
     constructor(id: bigint,
                 username: string,
-                title: string|undefined
+                fName: string| undefined,
+                lName: string| undefined,
+                title: string| undefined
     )
     {
         this.id = id;
+        this.firstname = fName;
+        this.lastname = lName;
         this.username = username;
         this.title = title;
     }
     get name(): string
     {
-        return this.title ?? "";
+        return this.title ?? this.firstname + " " + this.lastname;
+    }
+    update(u: Chat): void {
+        this.firstname = u.firstname;
+        this.username = u.username;
+        this.lastname = u.lastname;
+        this.title = u.title;
     }
     addCmd(cmd: string): void {
         if (!this.commandEnable)
@@ -480,73 +497,6 @@ export class Chat
         this.level = targetLevel;
         await this.save(db);
     }
-    async save(db: PrismaClient): Promise<void> {
-        let data = this.makeData();
-        
-        if(data == undefined)
-            return;
-        if(await User.search(db,this.id) != undefined)
-        {
-            await db.chat.update({
-                where: {
-                    id: this.id as bigint
-                },
-                data: data
-            });
-        }
-        else
-            await db.chat.create({data: data});
-    }
-    static parse(chat: nodeBot.Chat|undefined): Chat| undefined{
-        if(!chat)
-            return undefined;
-        let result = new Chat(BigInt(chat.id),
-                              chat.username ?? "",
-                              chat.title);
-        let m = new Map<nodeBot.ChatType,chatType>(
-        [
-            ["private",chatType.PRIVATE],
-            ["channel",chatType.CHANNEL],
-            ["group",chatType.GROUP],
-            ["supergroup",chatType.SUPER_GROUP]
-        ]); 
-        result.type = m.get(chat.type)!;
-        return result;
-    }
-}
-export class User extends Chat
-{
-    firstname: string| undefined = undefined
-    lastname: string| undefined = undefined
-    lastSeen: Date|undefined = undefined
-
-    constructor(id: bigint,
-                username: string,
-                fName: string| undefined,
-                lName: string| undefined,
-                title: string|undefined = undefined
-    )
-    {
-        super(id,username,title);
-        this.id = id;
-        this.firstname = fName;
-        this.lastname = lName;
-        this.username = username;
-    }
-    get name(): string
-    {
-        return this.title ?? this.firstname + " " + this.lastname;
-    }
-    
-    
-    
-    update(u: User): void {
-        this.firstname = u.firstname;
-        this.username = u.username;
-        this.lastname = u.lastname;
-    }
-    
-    
     makeData(): ({
         id: bigint
         username: string
@@ -557,8 +507,8 @@ export class User extends Chat
         level: $Enums.permission
         messageProcessed: number
         commandProcessed: number
-        registered: Date|null
-        lastSeen: Date|null
+        registered: Date
+        lastSeen: Date
         commandEnabled: string[]|undefined})|undefined
     {
         try
@@ -588,8 +538,8 @@ export class User extends Chat
                 level: permissions.get(this.level)!,
                 messageProcessed: this.messageProcessed,
                 commandProcessed: this.commandProcessed,
-                registered: this.registered ?? null,
-                lastSeen: this.lastSeen ?? null,
+                registered: this.registered!,
+                lastSeen: this.lastSeen!,
                 commandEnabled: this.commandEnable
             };
         }
@@ -598,38 +548,22 @@ export class User extends Chat
             return undefined;
         }
     }
-
-
-    static async where(db: PrismaClient,func:(x: User) => boolean): Promise<User[]> {
-        let result: User[] = await this.all(db);
-
-        return result.filter(func);
-    }
-    static async select<T>(db: PrismaClient,func:(x: User) => T): Promise<T[]> {
-        let users = await this.all(db);
-
-        return users.map(func);
-    }
-    static async search(db: PrismaClient,id: bigint): Promise<User|undefined> {
-        let result: User|undefined = undefined;
-        let r = await db.chat.findUnique({
-            where: {
-                id : id as bigint
-            }
-        });
-        if(r != undefined)
-            result = this.convert(r);
-        return result;
-    }
-    static async all(db: PrismaClient): Promise<User[]> {
-        let result: User[] = [];
-        let r = await db.chat.findMany()
-        r.forEach(y => {
-            let u = this.convert(y);
-            if(u != undefined)
-                result.push(u);                
-        })
-        return result;
+    async save(db: PrismaClient): Promise<void> {
+        let data = this.makeData();
+        
+        if(data == undefined)
+            return;
+        if(await Chat.search(db,this.id) != undefined)
+        {
+            await db.chat.update({
+                where: {
+                    id: this.id as bigint
+                },
+                data: data
+            });
+        }
+        else
+            await db.chat.create({data: data});
     }
     static convert(dbUser: {
         id: bigint
@@ -641,9 +575,9 @@ export class User extends Chat
         level: $Enums.permission
         messageProcessed: number
         commandProcessed: number
-        registered: Date | null
-        lastSeen: Date | null
-        commandEnabled: string[]|undefined}): User|undefined {
+        registered: Date
+        lastSeen: Date
+        commandEnabled: string[]|undefined}): Chat|undefined {
         try
         {
             let permissions: Map<$Enums.permission,permission> = new Map(
@@ -661,34 +595,76 @@ export class User extends Chat
                 [$Enums.chatType.private,chatType.PRIVATE],
                 [$Enums.chatType.superGroup,chatType.SUPER_GROUP]
             ])
-            let user = new User(dbUser.id,
+            let chat = new Chat(dbUser.id,
                 dbUser.username,
                 dbUser.firstname ?? undefined,
                 dbUser.lastname ?? undefined,
                 dbUser.title ?? undefined);
-            user.level = permissions.get(dbUser.level)!;
-            user.type = m.get(dbUser.type)!;
-            user.messageProcessed = dbUser.messageProcessed;
-            user.commandProcessed = dbUser.commandProcessed;
-            user.registered = dbUser.registered ?? undefined;
-            user.lastSeen = dbUser.lastSeen ?? undefined;
-            user.commandEnable = dbUser.commandEnabled;
-            return user;  
+            chat.level = permissions.get(dbUser.level)!;
+            chat.type = m.get(dbUser.type)!;
+            chat.messageProcessed = dbUser.messageProcessed;
+            chat.commandProcessed = dbUser.commandProcessed;
+            chat.registered = dbUser.registered;
+            chat.lastSeen = dbUser.lastSeen;
+            chat.commandEnable = dbUser.commandEnabled;
+            return chat;  
         }
         catch
         {
             return undefined;
         }
     }
-    static parse(u: nodeBot.User|nodeBot.Chat|undefined): User|undefined
-    {
-        if(u == undefined) return undefined;
+    static async where(db: PrismaClient,func:(x: Chat) => boolean): Promise<Chat[]> {
+        let result: Chat[] = await this.all(db);
 
-        let id = u.id;
-        let fName = u.first_name ?? "";
-        let lName = u.last_name ?? "";
-        let username = u.username ?? "";
+        return result.filter(func);
+    }
+    static async select<T>(db: PrismaClient,func:(x: Chat) => T): Promise<T[]> {
+        let Chats = await this.all(db);
 
-        return new User(BigInt(id), username, fName, lName);
+        return Chats.map(func);
+    }
+    static async search(db: PrismaClient,id: bigint): Promise<Chat|undefined> {
+        let result: Chat|undefined = undefined;
+        let r = await db.chat.findUnique({
+            where: {
+                id : id as bigint
+            }
+        });
+        if(r != undefined)
+            result = this.convert(r);
+        return result;
+    }
+    static async all(db: PrismaClient): Promise<Chat[]> {
+        let result: Chat[] = [];
+        let r = await db.chat.findMany()
+        r.forEach(y => {
+            let u = this.convert(y);
+            if(u != undefined)
+                result.push(u);                
+        })
+        return result;
+    }
+    static parse(chat: nodeBot.Chat|undefined): Chat| undefined{
+        if(!chat)
+            return undefined;
+
+        let id = chat.id;
+        let fName = chat.first_name ?? "";
+        let lName = chat.last_name ?? "";
+        let username = chat.username ?? "";
+        let title = chat.title;
+
+
+        let result = new Chat(BigInt(id),username,fName,lName,title);
+        let m = new Map<nodeBot.ChatType,chatType>(
+        [
+            ["private",chatType.PRIVATE],
+            ["channel",chatType.CHANNEL],
+            ["group",chatType.GROUP],
+            ["supergroup",chatType.SUPER_GROUP]
+        ]); 
+        result.type = m.get(chat.type)!;
+        return result;
     }
 }

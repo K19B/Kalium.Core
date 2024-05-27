@@ -4,7 +4,7 @@ import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { maiRankJp } from '../kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import { logger, message, command, User, logLevel, rendering, cliCommand, permission } from './lib/class';
+import { logger, message, command, Chat, logLevel, rendering, cliCommand, permission } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
 import { config } from './lib/config';
@@ -67,8 +67,10 @@ else if (BOTCONFIG.login.tokenT  == null)
 }
 logger.debug(` Config version: v${BOTCONFIG.core.confVer}`);
 logger.debug(' All checks passed.');
-
-let bot = new nodeBot(BOTCONFIG?.login.tokenT as string, {polling: true});
+let bot = new nodeBot(BOTCONFIG?.login.tokenT as string, 
+    {
+        polling: true
+    });
 bot.onText(/[\s\S]*/,messageHandle);
 
 logger.debug(' Bot core started.\n');
@@ -95,19 +97,34 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
                 ` ${msg.text ?? "EMPTY"}`);
 
         // Telegram User infomation update
-        let u = await User.search(DB, msg.from.id);
+        let u = await Chat.search(DB, msg.from.id);
+        let chat = await Chat.search(DB,msg.chat.id);
         let now = new Date();
         if (u != undefined) {
             u.update(msg.from);
             msg.from = u;
         }
+        if(chat != undefined)
+        {
+            if(msg.chat.id == msg.from.id && u != undefined)
+                msg.chat = u;
+            else(msg.chat.id != msg.from.id)
+            {
+                chat.update(msg.chat);
+                msg.chat = chat;
+            }
+        }
+        
         msg.from.lastSeen = now;
+        msg.chat.lastSeen = now;
 
         if (!msg.from.messageProcessed) {
             msg.from.registered = now;
             msg.from.messageProcessed = 0;
             msg.from.commandProcessed = 0;
         }
+        if(msg.chat.id != msg.from.id)
+            msg.chat.messageProcessed++;
         msg.from.messageProcessed++;
         
         // Reference checker
