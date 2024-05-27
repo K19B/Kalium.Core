@@ -104,6 +104,9 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
             u.update(msg.from);
             msg.from = u;
         }
+        else // If null, then new user
+            msg.from.commandEnable = Commands.map( x => x.command);
+
         if(chat != undefined)
         {
             if(msg.chat.id == msg.from.id && u != undefined)
@@ -114,7 +117,9 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
                 msg.chat = chat;
             }
         }
-        
+        else // If null, then new group
+            msg.chat.commandEnable = Commands.map( x => x.command);
+
         msg.from.lastSeen = now;
         msg.chat.lastSeen = now;
 

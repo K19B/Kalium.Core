@@ -449,8 +449,8 @@ export class Chat
     )
     {
         this.id = id;
-        this.firstname = fName;
-        this.lastname = lName;
+        this.firstname = fName ?? "";
+        this.lastname = lName ?? "";
         this.username = username;
         this.title = title;
     }
@@ -531,8 +531,8 @@ export class Chat
             return {
                 id: this.id,
                 username : this.username,
-                firstname: this.firstname ?? null,
-                lastname: this.lastname ?? null,
+                firstname: this.firstname ?? "",
+                lastname: this.lastname ?? "",
                 type: m.get(this.type)!,
                 title: this.title ?? null,
                 level: permissions.get(this.level)!,
@@ -597,8 +597,8 @@ export class Chat
             ])
             let chat = new Chat(dbUser.id,
                 dbUser.username,
-                dbUser.firstname ?? undefined,
-                dbUser.lastname ?? undefined,
+                dbUser.firstname ?? "",
+                dbUser.lastname ?? "",
                 dbUser.title ?? undefined);
             chat.level = permissions.get(dbUser.level)!;
             chat.type = m.get(dbUser.type)!;
