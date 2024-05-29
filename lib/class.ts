@@ -440,7 +440,9 @@ export class Chat {
         this.title = title;
     }
     get name(): string {
-        return this.title ?? this.firstname + " " + this.lastname;
+        return  this.type != chatType.PRIVATE  ? 
+                    this.title ?? this.firstname + " " + this.lastname : 
+                    this.firstname + " " + this.lastname;
     }
     update(u: Chat): void {
         this.firstname = u.firstname;

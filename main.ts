@@ -149,6 +149,8 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
         logger.debug(reqHeader +
             PERMISSION.get(msg.from.level)! +
             ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`, logLevel.debug);
+        if(msg.chat.id != msg.from.id)
+            msg.chat.commandProcessed++;
         msg.from.commandProcessed++;
         await msg.from.save(DB);
         await commandHandle(msg);
@@ -163,14 +165,19 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
 async function commandHandle(msg: message): Promise<void> {
     let command = msg.command!;
     let supportCmds = (await bot.getMyCommands()).map(x => x.command.replace("/",""));
-    let user = msg.from;
+    //let user = msg.from;
 
-    if (!user.commandEnable) {
-        user.commandEnable = supportCmds;
-        user.save(DB);
+    if(msg.isGroup)
+    {
+        let chat = msg.chat;
+        if (chat.commandEnable?.length == 0) {
+            chat.registered = new Date();
+            chat.commandEnable = supportCmds;
+            chat.save(DB);
+        }
+        else if (!chat.canExecute(command.prefix,msg))
+            return;
     }
-    else if (!user.canExecute(command.prefix,msg))
-        return;
     
     switch(command.prefix) {
         case "userinfo":
@@ -221,7 +228,7 @@ function getUserInfo(msg: message): void {
     ])
     let userId = msg.from.id;
     let resp = 'Kalium User Info\n```\n' + 
-                `- Basic`+
+                `- Basic\n`+
                 `name      : ${msg.from.name}\n`+
                 `id        : ${userId}\n`+
                 `${msg.isPrivate ? `lang      : ${msg.lang}\n`:``}`+
