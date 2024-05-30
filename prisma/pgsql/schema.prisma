@@ -38,10 +38,17 @@ enum musicDifficulty {
     ReMASTER
     UTAGE
 }
+enum chatType {
+    private
+    group
+    superGroup
+    channel
+}
+
 model musicScore {
     name String @unique
     level String
-    difficulty  musicDifficulty
+    difficulty musicDifficulty
     score Float
     dxScore Int
 }
@@ -60,14 +67,17 @@ model maiAccount {
     maiAlterId String
     maiAlterToken String
 } 
-model user {
+model chat {
     id BigInt @unique
     username String
-    firstname String
-    lastname String
+    type chatType
+    firstname String?
+    lastname String?
+    title String?
     level permission
     messageProcessed Int
     commandProcessed Int
     registered DateTime
     lastSeen DateTime
+    commandEnabled String[]
 }

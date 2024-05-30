@@ -2,9 +2,9 @@ import * as os from 'os';
 import nodeBot from 'node-telegram-bot-api';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
-import { maiRankJp } from './plugin/kalium-vanilla-mai/main';
+import { maiRankJp } from '../kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import { logger, message, command, User, logLevel, rendering, cliCommand } from './lib/class';
+import { logger, message, command, Chat, logLevel, rendering, cliCommand, permission } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
 import { config } from './lib/config';
@@ -17,7 +17,7 @@ export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
 
 const VER = process.env.npm_package_version;
 const PLATFORM = os.platform();
-const STARTTIME :string = Date();
+const STARTTIME: string = Date();
 const KERNEL = PLATFORM === 'linux'?  execFileSync('uname', ['-sr']).toString() :"NotSupport";
 const DB = new PrismaClient({
     datasources: {
@@ -67,72 +67,119 @@ else if (BOTCONFIG.login.tokenT  == null)
 }
 logger.debug(` Config version: v${BOTCONFIG.core.confVer}`);
 logger.debug(' All checks passed.');
-
-let bot = new nodeBot(BOTCONFIG?.login.tokenT as string, {polling: true});
+let bot = new nodeBot(BOTCONFIG?.login.tokenT as string, 
+    {
+        polling: true
+    });
 bot.onText(/[\s\S]*/,messageHandle);
 
 logger.debug(' Bot core started.\n');
 
 
 // Receive Messages
-async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | null): Promise<void>
-{
-    const USERNAME: string = (await bot.getMe()).username as string;
-    let Commands = await bot.getMyCommands();
-    let msg: message | undefined = message.parse(bot,botMsg);
-    let recHeader = `${rendering(color.fWhite,color.bBlue," RECV ")}`;
-    let reqHeader = `${rendering(color.fBlack,color.bPurple," UREQ ")}`;
-    if(msg == undefined) return;
+async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | null): Promise<void> {
+    try {
+        const USERNAME: string = (await bot.getMe()).username as string;
+        let Commands = await bot.getMyCommands();
+        let msg: message | undefined = message.parse(bot, botMsg);
+        let recHeader = `${rendering(color.fWhite, color.bBlue, " RECV ")}`;
+        let reqHeader = `${rendering(color.fBlack, color.bPurple, " UREQ ")}`;
+        if (msg == undefined) return;
 
-    if(msg.isGroup())
-        logger.debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` C:${msg.chat.id} U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
-                         ` ${msg.text ?? "EMPTY"}`);
-    else
-        logger.debug(recHeader + 
-                         `${rendering(color.bGreen,color.fBlack,` U:${msg.from.getName()}(${msg.from.id}) `)}`  + 
-                         ` ${msg.text ?? "EMPTY"}`);
+        if (msg.isGroup)
+            logger.debug(recHeader +
+                `${rendering(color.bGreen, color.fBlack, ` C:${msg.chat.id} U:${msg.from.name}(${msg.from.id}) `)}` +
+                ` ${msg.text ?? "EMPTY"}`);
+        else
+            logger.debug(recHeader +
+                `${rendering(color.bGreen, color.fBlack, ` U:${msg.from.name}(${msg.from.id}) `)}` +
+                ` ${msg.text ?? "EMPTY"}`);
 
-    // Telegram User infomation update
-    let u = await User.search(DB,msg.from.id);
-    let now = new Date();
-    if(u != undefined) {
-        u.update(msg.from);
-        msg.from = u;
-    }
-    msg.from.lastSeen = now;
+        // Telegram User infomation update
+        let u = await Chat.search(DB, msg.from.id);
+        let chat = await Chat.search(DB,msg.chat.id);
+        let now = new Date();
+        if (u != undefined) {
+            u.update(msg.from);
+            msg.from = u;
+        }
+        else // If null, then new user
+            msg.from.commandEnable = Commands.map( x => x.command);
 
-    if(!msg.from.messageProcessed) {
-        msg.from.registered = now;
-        msg.from.messageProcessed = 0;
-        msg.from.commandProcessed = 0;
-    }
-    msg.from.messageProcessed++;
-    await msg.from.save(DB);
-    // Reference checker
-    if(msg.command == undefined)
-        return;
-    if(msg.isGroup())
-    {
-        if(!msg.command.prefix.includes(USERNAME as string))
+        if(chat != undefined)
+        {
+            if(msg.chat.id == msg.from.id && u != undefined)
+                msg.chat = u;
+            else(msg.chat.id != msg.from.id)
+            {
+                chat.update(msg.chat);
+                msg.chat = chat;
+            }
+        }
+        else // If null, then new group
+            msg.chat.commandEnable = Commands.map( x => x.command);
+
+        msg.from.lastSeen = now;
+        msg.chat.lastSeen = now;
+
+        if (!msg.from.messageProcessed) {
+            msg.from.registered = now;
+            msg.from.messageProcessed = 0;
+            msg.from.commandProcessed = 0;
+        }
+        if(msg.chat.id != msg.from.id)
+            msg.chat.messageProcessed++;
+        msg.from.messageProcessed++;
+        
+        // Reference checker
+        if (msg.command == undefined) {
+            await msg.from.save(DB);
             return;
-        else if(msg.command.prefix.split("@")[1] != (USERNAME as string))
-            return
+        }
+        else if (msg.command.prefix.includes("@")) {
+            let _prefix = msg.command.prefix.split("@");
+            if (msg.isGroup) {
+                if (_prefix[1] != USERNAME) {
+                    await msg.from.save(DB);
+                    return;
+                }
+            }
+            msg.command.prefix = _prefix[0];
+        }
+        logger.debug(reqHeader +
+            PERMISSION.get(msg.from.level)! +
+            ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`, logLevel.debug);
+        if(msg.chat.id != msg.from.id)
+            msg.chat.commandProcessed++;
+        msg.from.commandProcessed++;
+        await msg.from.save(DB);
+        await commandHandle(msg);
     }
-    logger.debug(reqHeader + 
-                     PERMISSION.get(msg.from.level)!  + 
-                     ` PF:${msg.command.prefix} PR: ${msg.command.content.join(" ")}`,logLevel.debug);
-    msg.from.commandProcessed++;
-    await msg.from.save(DB);
-    commandHandle(msg);
+    catch(e:any)
+    {
+        logger.debug(` ${e.message ?? e}`,logLevel.fatal)
+    }
 }
 
 // Bot Commands
-function commandHandle(msg: message): void
-{
-    let command = msg.command as command;
-    switch(command.prefix)
+async function commandHandle(msg: message): Promise<void> {
+    let command = msg.command!;
+    let supportCmds = (await bot.getMyCommands()).map(x => x.command.replace("/",""));
+    //let user = msg.from;
+
+    if(msg.isGroup)
     {
+        let chat = msg.chat;
+        if (chat.commandEnable?.length == 0) {
+            chat.registered = new Date();
+            chat.commandEnable = supportCmds;
+            chat.save(DB);
+        }
+        else if (!chat.canExecute(command.prefix,msg))
+            return;
+    }
+    
+    switch(command.prefix) {
         case "userinfo":
             getUserInfo(msg);
         break;
@@ -165,47 +212,60 @@ function commandHandle(msg: message): void
         break;
         case "karcCalc":
             arcCalc(msg);
+            break;
+        case "kset":
+            groupSetting(msg);
         break;
     }
 }
-function getUserInfo(msg: message): void
-{
+function getUserInfo(msg: message): void {
+    let p = new Map([
+        [-1, "Disabled"],
+        [0,  "Default "],
+        [1, "WListed"],
+        [2, "Admin"],
+        [19,"Owner"],
+    ])
     let userId = msg.from.id;
-    let resp = 'Kalium User Info\n```\nID: ' + userId +
-               '\n```' + Date();
+    let resp = 'Kalium User Info\n```\n' + 
+                `- Basic\n`+
+                `name      : ${msg.from.name}\n`+
+                `id        : ${userId}\n`+
+                `${msg.isPrivate ? `lang      : ${msg.lang}\n`:``}`+
+                `perm      : ${p.get(msg.from.level)}\n\n`+
+                `- Stat\n`+
+                `Proced MSG: ${msg.from.messageProcessed}\n`+
+                `Proced MSG: ${msg.from.commandProcessed}\n`+
+                `Register  : ${msg.from.registered ? format(msg.from.registered,"yyyy-MM-dd HH:mm:ss") : "Unavailable"}` +
+               '\n```';
     msg.reply(resp);
 }
-function checkAlive(msg: message): void
-{
+function checkAlive(msg: message): void {
     let userId = msg.from.id;
     let resp = 'Kalium is alive.\nServer time: ' + Date();
     msg.reply(resp);
 }
-function getBotStatus(msg: message): void
-{
+function getBotStatus(msg: message): void {
     let userId = msg.from.id;
     let resp = 'Kalium Bot v' + VER + ' Status\n' +
                 '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
                 + Date();
     msg.reply(resp);
 }
-function wolHandle(msg: message): void
-{
+function wolHandle(msg: message): void {
     let userId = msg.from.id; 
-    if(userId == BigInt(1613650110))
-    {
+    if(userId == BigInt(1613650110)) {
         let resp = '`' + exec('wakeonlan', ['08:bf:b8:43:30:15']) + '`';
         msg.reply(resp);
     }
-    else
+    else {
         msg.reply("Permission Denied");
+    }
 }
-function fuckZzy(msg: message): void
-{
-    fwrd(msg.chat.id, "@MBRFans", 374741);
+function fuckZzy(msg: message): void {
+    message.forward(bot,"@MBRFans",msg.chat.id.toString(),374741);
 }
-function netQuery(msg: message): void
-{
+function netQuery(msg: message): void {
     let domain = msg.command?.content.join(" ") as string;
     var checkFqdn = 'FQDN not detected\n';
     var checkUrl = 'URL not detected';
@@ -230,13 +290,63 @@ function netQuery(msg: message): void
     // Finish Check
     msg.reply(checkFqdn + checkUrl);
 }
+function groupSetting(msg: message): void {
+
+    // /kset cmd +<cmd>  add new cmd to group allowCmds
+    // /kset cmd -<cmd>  remove a cmd from group allowCmds
+
+    let cmd = msg.command!;
+    if(msg.isPrivate) {
+        msg.reply("This command can only be used within the group");
+        return;
+    }
+    else if (!msg.from.checkPermission(permission.admin)) {
+        msg.reply("Permission Denied");
+        return;
+    }
+    else if(cmd.content.length < 1) {
+        msg.reply("Invaild param");
+        return;
+    }
+    let prefix = cmd.content[0];
+    let cmdManager = async (msg: message) => {
+        let cmd = msg.command!;
+        if(cmd.content.length < 2 || cmd.content[1].length < 2) {
+            msg.reply("Invaild param");
+            return;
+        }
+        let op = cmd.content[1][0];
+        let uCmd = cmd.content[1].slice(1,cmd.content[1].length - 1);
+        let botSupprort = (await bot.getMyCommands()).map( x => x.command);
+
+        if(!botSupprort.includes(uCmd)) {
+            msg.reply("Invaild command");
+            return;
+        }
+        let group = msg.from;
+        if(op == "-" && group.commandEnable!.includes(uCmd))
+            group.commandEnable = group.commandEnable?.filter( x => x != uCmd);
+        else if (op == "-" && !group.commandEnable!.includes(uCmd))
+            group.commandEnable!.push(uCmd);
+        await group.save(DB);
+        msg.reply("Success");
+    };
+
+    switch(prefix)
+    {
+        case "cmd":
+            cmdManager(msg);
+        break;
+    }
+}
 
 // Kalium Bot Functions
 function serverTime() {
     let svt = new Date().toLocaleString("en-CA", {timeZone: "UTC", hour12: false});
     return svt;
 }
-function log(type: string, lvl: string, data: string) { // Deprecated, will remove later.
+function log(type: string, lvl: string, data: string) {
+    // Deprecated by new logger, will remove later.
     let logdata = serverTime() + ' ' + type + ' ' + lvl + ' ' + data + '\n';
     fs.writeFile(LOGNAME, logdata, { flag: 'a+' }, err => {});
 }
@@ -273,8 +383,6 @@ function err(from: string, stderr: string) {
            'Kalium ' + VER + ', Kernel ' + KERNEL;
 }
 
-
-
 // Mai Rank Handler
 let maisegaId: undefined | string;
 let maiPasswd: undefined | string;
@@ -295,7 +403,18 @@ async function maiRank(msg: message): Promise<void>
         let result = "你还没有设置 DX Net 登录凭据哇！\n使用 /setid 和 /setp 登录！"
         msg.reply(result);
     } else {
-        let result = await maiRankJp(白丝Id, maisegaId, maiPasswd);
+        let data = await maiRankJp(白丝Id, maisegaId, maiPasswd);
+        if(!data || data.length < 3)
+        {
+            msg.reply("```\nEMPTY\n```");
+            return;
+        }
+        let result = `[1] ${data[0].ranker}\n
+                      ${data[0].score}\n
+                      [2] ${data[1].ranker}\n
+                      ${data[1].score}\n
+                      [3] ${data[2].ranker}\n
+                      ${data[2].score}\n`;
         msg.reply("```\n" + result + "\n```");
     }
 }
