@@ -1,3 +1,7 @@
+# v0.14.0
+- refactor: replace neofetch with tsfetch
+- feat: new table chat
+
 # v0.13.0
 - feat: html parser
 - feat: cli
