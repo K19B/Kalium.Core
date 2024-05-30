@@ -11,6 +11,7 @@ import { config } from './lib/config';
 import { format } from 'date-fns';
 import { exit } from 'process';
 import { dbUrl } from './lib/prisma';
+import * as tsfetch from 'tsfetch-re';
 
 export const BOTCONFIG: config | undefined = config.parse('config.yaml');
 export const LOGNAME = `${format(Date(),"yyyy-MM-dd HH-mm-ss")}.log`;
@@ -248,8 +249,8 @@ function checkAlive(msg: message): void {
 function getBotStatus(msg: message): void {
     let userId = msg.from.id;
     let resp = 'Kalium Bot v' + VER + ' Status\n' +
-                '```\n' + exec('bash', ['neofetch', '--stdout']) + '```\n'
-                + Date();
+                '```\n' + tsfetch.fetch() + '```\n'
+                + new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';;
     msg.reply(resp);
 }
 function wolHandle(msg: message): void {
