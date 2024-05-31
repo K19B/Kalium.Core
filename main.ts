@@ -142,6 +142,8 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
             if (msg.isGroup) {
                 if (_prefix[1] != USERNAME) {
                     await msg.from.save(DB);
+                    if(msg.chat.id != msg.from.id)
+                        await msg.chat.save(DB);
                     return;
                 }
             }
@@ -154,6 +156,8 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
             msg.chat.commandProcessed++;
         msg.from.commandProcessed++;
         await msg.from.save(DB);
+        if(msg.chat.id != msg.from.id)
+            await msg.chat.save(DB);
         await commandHandle(msg);
     }
     catch(e:any)
