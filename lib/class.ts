@@ -1,4 +1,5 @@
-import nodeBot, { Audio, Document, ParseMode, PhotoSize} from 'node-telegram-bot-api';
+import { Bot } from 'grammy';
+import type { Audio, Document, ParseMode, PhotoSize, Message, User, Chat as TgChat } from 'grammy/types';
 import * as color from './color';
 import { $Enums, PrismaClient, chat } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
@@ -133,10 +134,10 @@ export class message {
     document: Document | undefined
     photo: PhotoSize[] | undefined
     command: command | undefined
-    client: nodeBot | undefined
+    client: Bot | undefined
     lang: string | undefined
 
-    constructor(id: number, from: nodeBot.User, chat: Chat, command: command | undefined) {
+    constructor(id: number, from: User, chat: Chat, command: command | undefined) {
         this.id = id;
         this.from = new Chat(BigInt(from.id),from.username ?? "",from.first_name,from.last_name,undefined);
         this.from.title = chat.title;
@@ -168,7 +169,7 @@ export class message {
     async reply(text: string,
                 parseMode: ParseMode = "Markdown"): Promise<message| undefined>
     {
-        let msg = await this.client!.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode, reply_to_message_id: this.id });
+        let msg = await this.client!.api.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode, reply_to_message_id: this.id });
         return message.parse(this.client!,msg);
     }
     // Edit this message.
@@ -179,9 +180,7 @@ export class message {
     {
         if(!(await this.canSend()))
             throw Error("Cannot edit this message.");
-        let msg = await this.client!.editMessageText(newText,{ parse_mode: parseMode,
-                                                               chat_id: this.chat.id.toString(),
-                                                               message_id: this.id }) as nodeBot.Message
+        let msg = await this.client!.api.editMessageText(this.chat.id.toString(), this.id, newText, { parse_mode: parseMode }) as Message
 
         return message.parse(this.client!,msg);
     }
@@ -189,13 +188,13 @@ export class message {
     // If you aren't this message sender or no have corresponding authority,this action will make a error
     // Return: If success,return true
     async delete(): Promise<boolean> {
-        return await this.client?.deleteMessage(this.chat.id.toString(),this.id)!;
+        return await this.client?.api.deleteMessage(this.chat.id.toString(),this.id)!;
     }
     async forward(desChat: string|number): Promise<message| undefined> {
         if(!this.client)
             return undefined;
 
-        let msg = await this.client?.forwardMessage(desChat,this.chat.id.toString(),this.id);
+        let msg = await this.client?.api.forwardMessage(desChat,this.chat.id.toString(),this.id);
 
         if(!msg)
             return undefined;
@@ -206,33 +205,33 @@ export class message {
     async send(text: string,
                parseMode: ParseMode = "Markdown"): Promise<message| undefined> 
     {
-        let msg = await this.client!.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode })
+        let msg = await this.client!.api.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode })
 
         return message.parse(this.client!,msg);
     }
-    static async send(botClient: nodeBot,
+    static async send(botClient: Bot,
                       chatId:number,
                       text: string,
                       parseMode: ParseMode = "Markdown"): Promise<message | undefined> 
     {
-        let msg = await botClient.sendMessage(chatId, text, { parse_mode: parseMode })
+        let msg = await botClient.api.sendMessage(chatId, text, { parse_mode: parseMode })
 
         return message.parse(botClient,msg);
     }
-    static async forward(client: nodeBot,
+    static async forward(client: Bot,
                          srcChatId: string| number,
                          desChatId: string| number,
                          msgId: number): Promise<message| undefined>{
         if (!client)
             return undefined;
 
-        let msg = await client?.forwardMessage(desChatId, srcChatId, msgId);
+        let msg = await client?.api.forwardMessage(desChatId, srcChatId, msgId);
 
         if (!msg)
             return undefined;
         return message.parse(client, msg);
     }
-    static parse(bot: nodeBot,botMsg: nodeBot.Message): message | undefined
+    static parse(bot: Bot,botMsg: Message): message | undefined
     {
         try {
             let content: string | undefined = botMsg.text == undefined ?  botMsg.caption ?? "" : botMsg.text;
@@ -263,7 +262,7 @@ export class message {
     private async canSend(): Promise<boolean> {
         if(this.client != undefined) {
             return true;
-        } else if((await (this.client! as nodeBot).getMe()).id === Number(this.from.id)) {
+        } else if((await (this.client! as Bot).api.getMe()).id === Number(this.from.id)) {
             return true;
         }
         return false;
@@ -624,7 +623,7 @@ export class Chat {
         })
         return result;
     }
-    static parse(chat: nodeBot.Chat|undefined): Chat| undefined {
+    static parse(chat: TgChat|undefined): Chat| undefined {
         if(!chat)
             return undefined;
 
@@ -636,7 +635,7 @@ export class Chat {
 
 
         let result = new Chat(BigInt(id),username,fName,lName,title);
-        let m = new Map<nodeBot.ChatType,chatType>(
+        let m = new Map<TgChat["type"],chatType>(
         [
             ["private",chatType.PRIVATE],
             ["channel",chatType.CHANNEL],

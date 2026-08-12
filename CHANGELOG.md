@@ -1,3 +1,6 @@
+# v0.15.0
+- refactor: exp test grammY
+
 # v0.14.0
 - refactor: replace neofetch with tsfetch
 - feat: new table chat

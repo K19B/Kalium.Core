@@ -1,5 +1,6 @@
 import * as os from 'os';
-import nodeBot from 'node-telegram-bot-api';
+import { Bot } from 'grammy';
+import type { Message } from 'grammy/types';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { maiRankJp } from '../kalium-vanilla-mai/main';
@@ -68,20 +69,21 @@ else if (BOTCONFIG.login.tokenT  == null)
 }
 logger.debug(` Config version: v${BOTCONFIG.core.confVer}`);
 logger.debug(' All checks passed.');
-let bot = new nodeBot(BOTCONFIG?.login.tokenT as string, 
-    {
-        polling: true
-    });
-bot.onText(/[\s\S]*/,messageHandle);
+let bot = new Bot(BOTCONFIG?.login.tokenT as string);
+
+bot.on('message', ctx => messageHandle(ctx.message!));
+bot.catch(err => logger.debug(` ${err.error ?? err.message}`, logLevel.fatal));
 
 logger.debug(' Bot core started.\n');
 
+void bot.start().catch(e => logger.debug(` ${e.message ?? e}`, logLevel.fatal));
+
 
 // Receive Messages
-async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | null): Promise<void> {
+async function messageHandle(botMsg: Message): Promise<void> {
     try {
-        const USERNAME: string = (await bot.getMe()).username as string;
-        let Commands = await bot.getMyCommands();
+        const USERNAME: string = (await bot.api.getMe()).username;
+        let Commands = await bot.api.getMyCommands();
         let msg: message | undefined = message.parse(bot, botMsg);
         let recHeader = `${rendering(color.fWhite, color.bBlue, " RECV ")}`;
         let reqHeader = `${rendering(color.fBlack, color.bPurple, " UREQ ")}`;
@@ -111,7 +113,7 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
         {
             if(msg.chat.id == msg.from.id && u != undefined)
                 msg.chat = u;
-            else(msg.chat.id != msg.from.id)
+            else if(msg.chat.id != msg.from.id)
             {
                 chat.update(msg.chat);
                 msg.chat = chat;
@@ -169,7 +171,7 @@ async function messageHandle(botMsg: nodeBot.Message,resp: RegExpExecArray | nul
 // Bot Commands
 async function commandHandle(msg: message): Promise<void> {
     let command = msg.command!;
-    let supportCmds = (await bot.getMyCommands()).map(x => x.command.replace("/",""));
+    let supportCmds = (await bot.api.getMyCommands()).map(x => x.command.replace("/",""));
     //let user = msg.from;
 
     if(msg.isGroup)
@@ -240,7 +242,7 @@ function getUserInfo(msg: message): void {
                 `perm      : ${p.get(msg.from.level)}\n\n`+
                 `- Stat\n`+
                 `Proced MSG: ${msg.from.messageProcessed}\n`+
-                `Proced MSG: ${msg.from.commandProcessed}\n`+
+                `Proced CMD: ${msg.from.commandProcessed}\n`+
                 `Register  : ${msg.from.registered ? format(msg.from.registered,"yyyy-MM-dd HH:mm:ss") : "Unavailable"}` +
                '\n```';
     msg.reply(resp);
@@ -322,7 +324,7 @@ function groupSetting(msg: message): void {
         }
         let op = cmd.content[1][0];
         let uCmd = cmd.content[1].slice(1,cmd.content[1].length - 1);
-        let botSupprort = (await bot.getMyCommands()).map( x => x.command);
+        let botSupprort = (await bot.api.getMyCommands()).map( x => x.command);
 
         if(!botSupprort.includes(uCmd)) {
             msg.reply("Invaild command");
@@ -378,7 +380,7 @@ function secureExe0c(path: string, args: string[]) {
 function fwrd(id: any, src: any, msgid: number) {
     logger.debug('\x1b[43m FWRD \x1b[42m ' + id + ' \x1b[0m ' + src + "/" + msgid);
     log('FWRD', 'INFO  ', id + ' | ' + src + "/" + msgid);
-    bot.forwardMessage(id, src, msgid, );
+    bot.api.forwardMessage(id, src, msgid);
 }
 function err(from: string, stderr: string) {
     log(from, 'ERROR ', from + ' called error function.')
@@ -394,12 +396,12 @@ let maiPasswd: undefined | string;
 
 function maiSetId(msg: message): void
 {
-    maisegaId = msg.command?.content[1];
+    maisegaId = msg.command?.content[0];
     msg.reply("OK");
 }
 function maiSetP(msg: message): void
 {
-    maiPasswd = msg.command?.content[1];
+    maiPasswd = msg.command?.content[0];
     msg.reply("OK");
 }
 async function maiRank(msg: message): Promise<void>
@@ -436,12 +438,12 @@ function maiUpdate(msg: message): void
 function arcCalc(msg: message): void
 {
     let input = msg.command?.content;
-    let err = '```Usage\n/karc calc <lvl> <score>\n\nExamples:\n/karc calc 11 950\n/karc calc 9.7 9921930```';
-    if(!input || !input[3]) {
+    let err = '```Usage\n/karcCalc <lvl> <score>\n\nExamples:\n/karcCalc 11 950\n/karcCalc 9.7 9921930```';
+    if(!input || !input[1]) {
         msg.reply(err)
     } else {
         try {
-            msg.reply('```Result\n' + arcRtnCalc(parseFloat(input[2]), parseInt(input[3])) + '```');
+            msg.reply('```Result\n' + arcRtnCalc(parseFloat(input[0]), parseInt(input[1])) + '```');
         } catch {
             msg.reply(err);
         }
