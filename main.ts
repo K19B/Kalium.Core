@@ -3,15 +3,17 @@ import { Bot } from 'grammy';
 import type { Message } from 'grammy/types';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
-import { maiRankJp } from '../kalium-vanilla-mai/main';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import { maiRankJp, maiInfoJp } from './plugin/kalium-vanilla-mai/main';
 import * as color from './lib/color';
-import { logger, message, command, Chat, logLevel, rendering, cliCommand, permission } from './lib/class';
+import { logger, message, command, Chat, logLevel, rendering, cliCommand, permission, maiAccount, regMaiServer, maiLoginType } from './lib/class';
 import { PrismaClient } from '@prisma/client';
 import { arcRtnCalc } from 'kalium-vanilla-arc';
 import { config } from './lib/config';
 import { format } from 'date-fns';
 import { exit } from 'process';
 import { dbUrl } from './lib/prisma';
+import { getSystemProxy } from './lib/proxy';
 import * as tsfetch from 'tsfetch-re';
 
 export const BOTCONFIG: config | undefined = config.parse('config.yaml');
@@ -69,7 +71,13 @@ else if (BOTCONFIG.login.tokenT  == null)
 }
 logger.debug(` Config version: v${BOTCONFIG.core.confVer}`);
 logger.debug(' All checks passed.');
-let bot = new Bot(BOTCONFIG?.login.tokenT as string);
+let proxyUrl = getSystemProxy();
+let botConfig: any = {};
+if (proxyUrl) {
+    logger.debug(` Using system proxy: ${proxyUrl}`);
+    botConfig.client = { baseFetchConfig: { agent: new HttpsProxyAgent(proxyUrl) } };
+}
+let bot = new Bot(BOTCONFIG?.login.tokenT as string, botConfig);
 
 bot.on('message', ctx => messageHandle(ctx.message!));
 bot.catch(err => logger.debug(` ${err.error ?? err.message}`, logLevel.fatal));
@@ -213,6 +221,9 @@ async function commandHandle(msg: message): Promise<void> {
         break;
         case "rank":
             maiRank(msg);
+        break;
+        case "mai":
+            maiHandle(msg);
         break;
         case "kupdate":
             maiUpdate(msg);
@@ -423,6 +434,66 @@ async function maiRank(msg: message): Promise<void>
                       [3] ${data[2].ranker}\n
                       ${data[2].score}\n`;
         msg.reply("```\n" + result + "\n```");
+    }
+}
+// Mai Account Handler
+async function maiHandle(msg: message): Promise<void>
+{
+    let content = msg.command?.content;
+    if(!content || !content[0]) {
+        let result = "```Usage\n/mai bind <USERNAME> <PASSWD>\n/mai info\n\nExamples:\n/mai bind MBRjun 123456\n/mai info```";
+        msg.reply(result);
+        return;
+    }
+    switch(content[0]) {
+        case "bind":
+            await maiBind(msg, content);
+        break;
+        case "info":
+            await maiInfo(msg);
+        break;
+        default:
+            msg.reply("```Usage\n/mai bind <USERNAME> <PASSWD>\n/mai info```");
+        break;
+    }
+}
+async function maiBind(msg: message, content: string[]): Promise<void>
+{
+    // Forbid anonymous accounts and group itself
+    if(msg.senderChat != undefined) {
+        msg.reply("匿名账号 / 群本身不能绑定 maimai 账号！请在私聊或使用自己的账号发送。");
+        return;
+    }
+    if(!content[1] || !content[2]) {
+        msg.reply("```Usage\n/mai bind <USERNAME> <PASSWD>```");
+        return;
+    }
+    let segaId = content[1];
+    let password = content[2];
+    let acc = await maiAccount.search(DB, msg.from.id, regMaiServer.JP);
+    if(acc == undefined) {
+        acc = new maiAccount(msg.from.id, regMaiServer.JP);
+    }
+    acc.loginType = maiLoginType.sega;
+    acc.maiId = segaId;
+    acc.maiToken = password;
+    acc.maiAlterId = undefined;
+    acc.maiAlterToken = undefined;
+    await acc.save(DB);
+    msg.reply("OK, 账号已绑定。使用 /mai info 查看账号信息。");
+}
+async function maiInfo(msg: message): Promise<void>
+{
+    let acc = await maiAccount.search(DB, msg.from.id, regMaiServer.JP);
+    if(acc == undefined || !acc.maiId || !acc.maiToken) {
+        msg.reply("你还没有绑定 maimai DX Net 账号！\n使用 /mai bind <USERNAME> <PASSWD> 绑定！");
+        return;
+    }
+    try {
+        let name = await maiInfoJp(acc.maiId, acc.maiToken);
+        msg.reply("```\nAccount Name: " + name + "\n```");
+    } catch(e: any) {
+        msg.reply("获取账号信息失败: " + (e.message ?? e));
     }
 }
 function maiUpdate(msg: message): void

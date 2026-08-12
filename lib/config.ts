@@ -1,6 +1,15 @@
 import * as fs from 'fs';
 import yaml from 'yaml';
-import { logLevel } from './class';
+
+// logLevel defined here (not in class.ts) to avoid circular dependency
+export enum logLevel {
+    fatal = 9,
+    error = 8,
+    warn = 2,
+    info = 1,
+    debug = 0,
+    slient = -1
+}
 
 export class file {
     static exist(filePath: string): boolean {
@@ -62,7 +71,29 @@ export class config {
                 throw new Error("EK0001: Config not found.");
             }
             let content = fs.readFileSync(filePath, 'utf8');
-            return YamlSerializer.deserialize(content);
+            let raw = yaml.parse(content) as any;
+            if (!raw) return undefined;
+
+            let cfg = new config();
+
+            // Core
+            cfg.core.confVer = raw.core?.version ?? 0;
+            cfg.core.logLevel = raw.core?.logLevel ?? logLevel.debug;
+            cfg.core.logPath = raw.core?.logPath ?? raw.env?.logfile;
+
+            // Login (Telegram)
+            cfg.login.tokenT = raw.env?.bottoken;
+            cfg.login.proxy = raw.env?.proxy;
+
+            // Database
+            cfg.database.type = raw.database?.type ?? 'pgsql';
+            cfg.database.host = raw.database?.host ?? '127.0.0.1';
+            cfg.database.port = raw.database?.port;
+            cfg.database.username = raw.database?.username ?? 'kalium';
+            cfg.database.password = raw.database?.password;
+            cfg.database.db = raw.database?.db ?? raw.database?.database ?? 'kalium';
+
+            return cfg;
         } catch {
             return undefined;
         }

@@ -3,18 +3,12 @@ import type { Audio, Document, ParseMode, PhotoSize, Message, User, Chat as TgCh
 import * as color from './color';
 import { $Enums, PrismaClient, chat } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
-import { YamlSerializer, file } from './config';
-import { musicScore } from '../../kalium-vanilla-mai/class';
+import { YamlSerializer, file, logLevel } from './config';
+import { musicScore } from '../plugin/kalium-vanilla-mai/class';
 import { title } from 'process';
 
-export enum logLevel {
-    fatal = 9,
-    error = 8,
-    warn = 2,
-    info = 1,
-    debug = 0,
-    slient = -1
-}
+export { logLevel };
+
 export enum permission {
     disabled = -1,
     default,
@@ -136,6 +130,7 @@ export class message {
     command: command | undefined
     client: Bot | undefined
     lang: string | undefined
+    senderChat: TgChat | undefined
 
     constructor(id: number, from: User, chat: Chat, command: command | undefined) {
         this.id = id;
@@ -253,6 +248,7 @@ export class message {
             msg.photo = botMsg.photo;
             msg.client = bot;
             msg.lang = botMsg.from?.language_code;
+            msg.senderChat = botMsg.sender_chat;
             return msg;
         }
         catch {

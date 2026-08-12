@@ -1,3 +1,12 @@
+# v0.15.1
+- fix: config.parse() field mapping (resolves BOTCONFIG.login.tokenT undefined)
+- fix: circular dependency between config.ts and class.ts
+- fix: URL-encode database credentials in lib/prisma.ts
+- feat: system proxy detection (lib/proxy.ts, env vars + Windows registry)
+- feat: grammY proxy integration via https-proxy-agent
+- feat: local DB tunnel via HTTP CONNECT proxy
+- chore: deps(add) https-proxy-agent
+
 # v0.15.0
 - refactor: exp test grammY
 
