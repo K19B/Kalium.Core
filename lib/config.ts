@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import yaml from 'yaml';
 
 // logLevel defined here (not in class.ts) to avoid circular dependency
@@ -22,7 +23,9 @@ export class file {
     }
     static appendText(filePath: string,content: string): boolean {
         try {
-            fs.appendFileSync(filePath,content);
+            const resolvedPath = path.resolve(filePath);
+            fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+            fs.appendFileSync(resolvedPath,content);
             return true;
         } catch (err) {
             return false;

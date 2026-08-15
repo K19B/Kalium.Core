@@ -6,6 +6,7 @@ import { BOTCONFIG, LOGNAME } from '../main';
 import { YamlSerializer, file, logLevel } from './config';
 import { musicScore } from '../plugin/kalium-vanilla-mai/class';
 import { title } from 'process';
+import * as path from 'path';
 
 export { logLevel };
 
@@ -82,14 +83,17 @@ export class cliCommand {
 }
 
 export class logger {
-    static debug(content: string, level: logLevel = logLevel.debug) {
+    static debug(content: string, level: logLevel = logLevel.debug, module = 'CORE') {
         let text: string | undefined;
+        const moduleText = module.slice(0, 6);
+        const modulePadding = Math.max(0, 6 - moduleText.length);
+        const moduleLabel = ` ${' '.repeat(Math.floor(modulePadding / 2))}${moduleText}${' '.repeat(Math.ceil(modulePadding / 2))} `;
         switch(level) {
             case logLevel.debug:
-                text = rendering(color.fWhite,color.bBlack," DBUG ") + rendering(color.bCyan,color.fBlack,"  CORE  ") + content;
+                text = rendering(color.fWhite,color.bBlack," DBUG ") + rendering(color.bCyan,color.fBlack,moduleLabel) + content;
             break;
             case logLevel.info:
-                text = rendering(color.fBlack,color.bWhite," INFO ") + rendering(color.bCyan,color.fBlack,"  CORE  ") + content;
+                text = rendering(color.fBlack,color.bWhite," INFO ") + rendering(color.bCyan,color.fBlack,moduleLabel) + content;
             break;
             case logLevel.warn:
                 text = rendering(color.fBlack,color.bYellow," WARN ") + content;
@@ -105,11 +109,11 @@ export class logger {
             if (level >= BOTCONFIG?.core.logLevel!) {
                 console.log(text);
             }
-            if
-            (
-                !BOTCONFIG?.core.logPath // logPath defined
-                || !file.appendText(`${BOTCONFIG?.core.logPath}/${LOGNAME}`,`${text}\n`) // write log fail
-            )
+            const configuredPath = BOTCONFIG?.core.logPath;
+            const logFile = configuredPath
+                ? path.extname(configuredPath) ? configuredPath : path.join(configuredPath, LOGNAME)
+                : undefined;
+            if (!logFile || !file.appendText(logFile, `${text}\n`))
             {
                 console.log(`${rendering(color.fBlack,color.bRed," ERRO ")} Failed writing log to file.`);
             }
@@ -131,6 +135,20 @@ export class message {
     client: Bot | undefined
     lang: string | undefined
     senderChat: TgChat | undefined
+
+    static summarize(text: string | undefined, hasPhoto = false): string {
+        const preview = (text ?? '').split(/\r?\n/, 1)[0].replace(/\s+/g, ' ').trim();
+        if (hasPhoto) return preview ? `[PIC] ${preview}` : '[PIC]';
+        return preview || '[EMPTY]';
+    }
+
+    private logOutbound(kind: 'SEND' | 'EDIT', text: string | undefined, hasPhoto = false, level: logLevel = logLevel.debug): void {
+        const label = kind === 'SEND'
+            ? rendering(color.fBlack, color.bYellow, ' SEND ')
+            : rendering(color.fBlack, color.bGreen, ' EDIT ');
+        const target = rendering(color.fGreen, color.fBlack, ` U:${this.from.name} (${this.from.id}) `);
+        logger.debug(`${label}${target}${message.summarize(text, hasPhoto)}`, level);
+    }
 
     constructor(id: number, from: User, chat: Chat, command: command | undefined) {
         this.id = id;
@@ -164,6 +182,7 @@ export class message {
     async reply(text: string,
                 parseMode: ParseMode = "Markdown"): Promise<message| undefined>
     {
+        this.logOutbound('SEND', text, false, logLevel.info);
         let msg = await this.client!.api.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode, reply_to_message_id: this.id });
         return message.parse(this.client!,msg);
     }
@@ -175,6 +194,7 @@ export class message {
     {
         if(!(await this.canSend()))
             throw Error("Cannot edit this message.");
+        this.logOutbound('EDIT', newText);
         let msg = await this.client!.api.editMessageText(this.chat.id.toString(), this.id, newText, { parse_mode: parseMode }) as Message
 
         return message.parse(this.client!,msg);
@@ -200,6 +220,7 @@ export class message {
     async send(text: string,
                parseMode: ParseMode = "Markdown"): Promise<message| undefined> 
     {
+        this.logOutbound('SEND', text, false, logLevel.info);
         let msg = await this.client!.api.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode })
 
         return message.parse(this.client!,msg);
@@ -209,6 +230,9 @@ export class message {
                       text: string,
                       parseMode: ParseMode = "Markdown"): Promise<message | undefined> 
     {
+        const label = rendering(color.fBlack, color.bYellow, ' SEND ');
+        const target = rendering(color.fGreen, color.fBlack, ` C:${chatId} `);
+        logger.debug(`${label}${target}${message.summarize(text)}`, logLevel.info);
         let msg = await botClient.api.sendMessage(chatId, text, { parse_mode: parseMode })
 
         return message.parse(botClient,msg);

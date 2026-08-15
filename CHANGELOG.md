@@ -1,3 +1,6 @@
+# v0.16.0
+- feat: mai b50 entry
+
 # v0.15.1
 - fix: config.parse() field mapping (resolves BOTCONFIG.login.tokenT undefined)
 - fix: circular dependency between config.ts and class.ts

@@ -1,10 +1,12 @@
 import * as os from 'os';
-import { Bot } from 'grammy';
+import { Bot, InputFile } from 'grammy';
 import type { Message } from 'grammy/types';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import { maiRankJp, maiInfoJp } from './plugin/kalium-vanilla-mai/main';
+import { maiRankJp, maiInfoJp, getPlayerHomeJp, fetchB50ScoreTablesForUserJp, buildBest50Entries, warmJacketCache, warmDxStarCache } from './plugin/kalium-vanilla-mai/main';
+import type { b50Entry, difficultyScore } from './plugin/kalium-vanilla-mai/main';
+import { generateB50Image, generatePlaceholder } from './plugin/kalium-vanilla-mai/imgGen';
 import * as color from './lib/color';
 import { logger, message, command, Chat, logLevel, rendering, cliCommand, permission, maiAccount, regMaiServer, maiLoginType } from './lib/class';
 import { PrismaClient } from '@prisma/client';
@@ -83,6 +85,19 @@ bot.on('message', ctx => messageHandle(ctx.message!));
 bot.catch(err => logger.debug(` ${err.error ?? err.message}`, logLevel.fatal));
 
 logger.debug(' Bot core started.\n');
+
+function logOutbound(kind: 'SEND' | 'EDIT', chatId: string | number, text: string | undefined, hasPhoto = false, user?: { name: string; id: bigint }): void {
+    const firstLine = (text ?? '').split(/\r?\n/, 1)[0].replace(/\s+/g, ' ').trim();
+    const summary = hasPhoto ? (firstLine ? `[PIC] ${firstLine}` : '[PIC]') : (firstLine || '[EMPTY]');
+    const target = user && user.id.toString() === chatId.toString()
+        ? `U:${user.name} (${user.id})`
+        : `C:${chatId}`;
+    const kindLabel = kind === 'SEND'
+        ? rendering(color.fBlack, color.bYellow, ' SEND ')
+        : rendering(color.fBlack, color.bGreen, ' EDIT ');
+    const targetLabel = rendering(color.bGreen, color.fBlack, ` ${target} `);
+    logger.debug(`${kindLabel}${targetLabel} ${summary}`, kind === 'SEND' ? logLevel.info : logLevel.debug);
+}
 
 void bot.start().catch(e => logger.debug(` ${e.message ?? e}`, logLevel.fatal));
 
@@ -441,7 +456,7 @@ async function maiHandle(msg: message): Promise<void>
 {
     let content = msg.command?.content;
     if(!content || !content[0]) {
-        let result = "```Usage\n/mai bind <USERNAME> <PASSWD>\n/mai info\n\nExamples:\n/mai bind MBRjun 123456\n/mai info```";
+        let result = "```Usage\n/mai bind <USERNAME> <PASSWD>\n/mai info\n/mai b50\n/mai b50 lite\n/mai flushcache\n\nExamples:\n/mai bind MBRjun 123456\n/mai info\n/mai b50\n/mai b50 lite\n/mai flushcache```";
         msg.reply(result);
         return;
     }
@@ -452,8 +467,18 @@ async function maiHandle(msg: message): Promise<void>
         case "info":
             await maiInfo(msg);
         break;
+        case "b50":
+            if (content[1] === "lite") {
+                await maiB50Lite(msg);
+            } else {
+                await maiB50(msg);
+            }
+        break;
+        case "flushcache":
+            await maiFlushCache(msg);
+        break;
         default:
-            msg.reply("```Usage\n/mai bind <USERNAME> <PASSWD>\n/mai info```");
+            msg.reply("```Usage\n/mai bind <USERNAME> <PASSWD>\n/mai info\n/mai b50\n/mai b50 lite\n/mai flushcache```");
         break;
     }
 }
@@ -461,7 +486,7 @@ async function maiBind(msg: message, content: string[]): Promise<void>
 {
     // Forbid anonymous accounts and group itself
     if(msg.senderChat != undefined) {
-        msg.reply("匿名账号 / 群本身不能绑定 maimai 账号！请在私聊或使用自己的账号发送。");
+        msg.reply("Sending bind from group is not currently supported.");
         return;
     }
     if(!content[1] || !content[2]) {
@@ -480,20 +505,251 @@ async function maiBind(msg: message, content: string[]): Promise<void>
     acc.maiAlterId = undefined;
     acc.maiAlterToken = undefined;
     await acc.save(DB);
-    msg.reply("OK, 账号已绑定。使用 /mai info 查看账号信息。");
+    msg.reply("Bind successfully.");
 }
 async function maiInfo(msg: message): Promise<void>
 {
     let acc = await maiAccount.search(DB, msg.from.id, regMaiServer.JP);
     if(acc == undefined || !acc.maiId || !acc.maiToken) {
-        msg.reply("你还没有绑定 maimai DX Net 账号！\n使用 /mai bind <USERNAME> <PASSWD> 绑定！");
+        msg.reply("Bind SEGA ID first.\n/mai bind <USERNAME> <PASSWD>");
         return;
     }
     try {
         let name = await maiInfoJp(acc.maiId, acc.maiToken);
-        msg.reply("```\nAccount Name: " + name + "\n```");
+        msg.reply("```\nUsername: " + name + "\n```");
     } catch(e: any) {
-        msg.reply("获取账号信息失败: " + (e.message ?? e));
+        msg.reply("Login failed: " + (e.message ?? e));
+    }
+}
+
+interface b50Cache {
+    version: 2;
+    playerName: string;
+    rating: string;
+    scoreTables: difficultyScore[][];
+}
+
+async function readB50Cache(userId: bigint): Promise<b50Cache | undefined> {
+    const cached = await DB.maiData.findUnique({ where: { id: userId } });
+    if (!cached || cached.server !== 'JP') return undefined;
+    try {
+        const data = JSON.parse(cached.data) as b50Cache;
+        if (data.version !== 2 || !Array.isArray(data.scoreTables) || data.scoreTables.length !== 5) return undefined;
+        return data;
+    } catch {
+        return undefined;
+    }
+}
+
+async function writeB50Cache(userId: bigint, cache: b50Cache): Promise<void> {
+    await DB.maiData.upsert({
+        where: { id: userId },
+        create: {
+            id: userId,
+            server: 'JP',
+            loginType: 'sega',
+            data: JSON.stringify(cache),
+        },
+        update: {
+            server: 'JP',
+            loginType: 'sega',
+            data: JSON.stringify(cache),
+        },
+    });
+}
+
+async function queryB50(
+    userId: bigint,
+    acc: maiAccount,
+    onProgress?: (percent: number, detail: string, scoreCount?: number) => Promise<void>
+): Promise<{ playerName: string; rating: string; entries: b50Entry[]; cached: boolean }> {
+    if (!acc.maiId || !acc.maiToken) throw new Error('maimai DX Net 账号未绑定');
+    const segaId = acc.maiId;
+    const password = acc.maiToken;
+    await onProgress?.(0, 'Fetching local cache...');
+    const cached = await readB50Cache(userId);
+
+    // Login once: get userId + name + current rating.
+    await onProgress?.(2, 'Logining...');
+    const home = await getPlayerHomeJp(segaId, password, onProgress);
+    if (cached && cached.rating === home.rating) {
+        const entries = buildBest50Entries(cached.scoreTables);
+        await warmJacketCache(home.userId, entries, onProgress);
+        await warmDxStarCache(entries, onProgress);
+        await onProgress?.(100, 'Cache available. Reading cache...\nUse ``/mai flushcache`` to clear cache.', entries.length);
+        return { playerName: cached.playerName, rating: home.rating, entries, cached: true };
+    }
+
+    await onProgress?.(5, cached ? 'Cache need revalidate. Refreshing...' : 'Ready to read records.');
+    const scoreTables = await fetchB50ScoreTablesForUserJp(home.userId, onProgress);
+    const entries = buildBest50Entries(scoreTables);
+    await warmJacketCache(home.userId, entries, onProgress);
+    await warmDxStarCache(entries, onProgress);
+    await writeB50Cache(userId, { version: 2, playerName: home.name, rating: home.rating, scoreTables });
+    await onProgress?.(100, 'Query finished.', entries.length);
+    return { playerName: home.name, rating: home.rating, entries, cached: false };
+}
+
+async function maiFlushCache(msg: message): Promise<void> {
+    const deleted = await DB.maiData.deleteMany({ where: { id: msg.from.id, server: 'JP' } });
+    msg.reply(deleted.count ? 'Cache cleared.' : 'No cache available.');
+}
+
+async function maiB50(msg: message): Promise<void>
+{
+    let acc = await maiAccount.search(DB, msg.from.id, regMaiServer.JP);
+    if(acc == undefined || !acc.maiId || !acc.maiToken) {
+        msg.reply("Bind SEGA ID first.\n/mai bind <USERNAME> <PASSWD>");
+        return;
+    }
+
+    // Step 1: Send placeholder image immediately
+    let placeholderMsgId: number | undefined;
+    try {
+        let placeholderBuf = await generatePlaceholder();
+        logOutbound('SEND', msg.chat.id.toString(), 'Querying B50... 0%', true, msg.from);
+        let sent = await bot.api.sendPhoto(msg.chat.id.toString(), new InputFile(placeholderBuf, 'placeholder.png'), {
+            caption: 'Querying B50... 0%',
+            reply_to_message_id: msg.id,
+        });
+        placeholderMsgId = sent.message_id;
+    } catch {
+        // If placeholder fails, still proceed with data fetch
+    }
+
+    const updateProgress = async (percent: number, detail: string, scoreCount?: number) => {
+        if (!placeholderMsgId) return;
+        await bot.api.editMessageCaption(msg.chat.id.toString(), placeholderMsgId, {
+            caption: `Querying B50... ${percent}%\n${detail}${scoreCount == undefined ? '' : `\nParsed ${scoreCount} valid records`}`,
+        });
+        logOutbound('EDIT', msg.chat.id.toString(), `Querying B50... ${percent}%\n${detail}`, false, msg.from);
+    };
+
+    // Step 2: Fetch data
+    try {
+        const result = await queryB50(msg.from.id, acc, updateProgress);
+        let playerName = result.playerName;
+        let rating = result.rating;
+        let entries = result.entries;
+
+        if (!entries || entries.length === 0) {
+            throw new Error('NODATA: No valid B50 records found.');
+        }
+
+        let imageBuf = await generateB50Image(playerName, rating, entries);
+
+        // Step 3: Update placeholder with real image, or send new
+        if (placeholderMsgId) {
+            logOutbound('EDIT', msg.chat.id.toString(), `${playerName} の B50 | DX Rating: ${rating}`, true, msg.from);
+            await bot.api.editMessageMedia(msg.chat.id.toString(), placeholderMsgId, {
+                type: 'photo',
+                media: new InputFile(imageBuf, 'b50.png'),
+                caption: `B50 | ${playerName} | ${rating}`,
+            });
+        } else {
+            logOutbound('SEND', msg.chat.id.toString(), `B50 | ${playerName} | ${rating}`, true, msg.from);
+            await bot.api.sendPhoto(msg.chat.id.toString(), new InputFile(imageBuf, 'b50.png'), {
+                caption: `B50 | ${playerName} | ${rating}`,
+                reply_to_message_id: msg.id,
+            });
+        }
+    } catch(e: any) {
+        let errMsg = "Unexpected error, please report to bot admin:" + (e.message ?? e);
+        if (placeholderMsgId) {
+            logOutbound('EDIT', msg.chat.id.toString(), errMsg, false, msg.from);
+            await bot.api.editMessageCaption(msg.chat.id.toString(), placeholderMsgId, { caption: errMsg });
+        } else {
+            msg.reply(errMsg);
+        }
+    }
+}
+
+function b50LiteGrade(achievement: number): string {
+    if (achievement >= 100.5) return "SSS+";
+    if (achievement >= 100) return "SSS";
+    if (achievement >= 99.5) return "SS+";
+    if (achievement >= 99) return "SS";
+    if (achievement >= 98) return "S+";
+    if (achievement >= 97) return "S";
+    if (achievement >= 94) return "AAA";
+    if (achievement >= 90) return "AA";
+    if (achievement >= 80) return "A";
+    return "BBB";
+}
+
+function b50LiteCombo(type: number): string {
+    return ["", "FC", "FC+", "AP", "AP+"][type] ?? "";
+}
+
+function b50LiteSync(type: number): string {
+    return ["   ", "SP ", "FS ", "FS+", "FDX", "FX+"][type] ?? "   ";
+}
+
+function escapeCodeText(value: string): string {
+    return value.replace(/`/g, "'");
+}
+
+function formatB50Lite(entries: b50Entry[]): string[] {
+    const lines: string[] = [];
+    for (const entry of entries) {
+        const chartType = entry.isDxChart ? "DX" : "STD";
+        const title = escapeCodeText(entry.songName);
+        const level = entry.level.padStart(3);
+        const combo = b50LiteCombo(entry.comboType);
+        const sync = b50LiteSync(entry.syncType);
+        const firstLine = `[${entry.rank.toString().padStart(2, "0")}] ${title} ${level} ${chartType}`;
+        const gradeLine = `     ${b50LiteGrade(entry.achievement).padEnd(4)} ${entry.achievement.toFixed(4).padStart(8)}% ${entry.rating} ${sync}${combo ? ` ${combo}` : ""}`;
+        lines.push(firstLine, gradeLine);
+    }
+
+    const chunks: string[] = [];
+    let chunk = "";
+    for (const line of lines) {
+        const next = chunk ? `${chunk}\n${line}` : line;
+        if (next.length > 3600 && chunk) {
+            chunks.push(`\`\`\`\n${chunk}\n\`\`\``);
+            chunk = line;
+        } else {
+            chunk = next;
+        }
+    }
+    if (chunk) chunks.push(`\`\`\`\n${chunk}\n\`\`\``);
+    return chunks;
+}
+
+async function maiB50Lite(msg: message): Promise<void>
+{
+    let acc = await maiAccount.search(DB, msg.from.id, regMaiServer.JP);
+    if(acc == undefined || !acc.maiId || !acc.maiToken) {
+        msg.reply("Bind SEGA ID first.\n/mai bind <USERNAME> <PASSWD>");
+        return;
+    }
+
+    let progressMsg: message | undefined;
+    try {
+        const createdProgressMsg = await msg.reply("```\nQuerying B50... 0%```");
+        if (!createdProgressMsg) throw new Error("无法创建查询进度消息");
+        progressMsg = createdProgressMsg;
+        const updateProgress = async (percent: number, detail: string, scoreCount?: number) => {
+            const countLine = scoreCount == undefined ? "" : `\n${scoreCount} musicDetails parsed.`;
+            await createdProgressMsg.edit(`\`\`\`\nQuerying B50... ${percent}%\n${detail}${countLine}\n\`\`\``);
+        };
+
+        const result = await queryB50(msg.from.id, acc, updateProgress);
+        const entries = result.entries;
+        if (entries.length === 0) throw new Error("NODATA: No valid B50 records found.");
+
+        await createdProgressMsg.delete();
+        for (const output of formatB50Lite(entries)) {
+            await msg.reply(output);
+        }
+    } catch(e: any) {
+        const errorText = `Unexpected error, please report to bot admin: ${e.message ?? e}`;
+        if (progressMsg) {
+            await progressMsg.edit(errorText, "Markdown");
+        } else {
+            msg.reply(errorText);
+        }
     }
 }
 function maiUpdate(msg: message): void
