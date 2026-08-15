@@ -1,19 +1,15 @@
-import nodeBot, { Audio, Document, ParseMode, PhotoSize} from 'node-telegram-bot-api';
+import { Bot } from 'grammy';
+import type { Audio, Document, ParseMode, PhotoSize, Message, User, Chat as TgChat } from 'grammy/types';
 import * as color from './color';
 import { $Enums, PrismaClient, chat } from '@prisma/client';
 import { BOTCONFIG, LOGNAME } from '../main';
-import { YamlSerializer, file } from './config';
-import { musicScore } from '../../kalium-vanilla-mai/class';
+import { YamlSerializer, file, logLevel } from './config';
+import { musicScore } from '../plugin/kalium-vanilla-mai/class';
 import { title } from 'process';
+import * as path from 'path';
 
-export enum logLevel {
-    fatal = 9,
-    error = 8,
-    warn = 2,
-    info = 1,
-    debug = 0,
-    slient = -1
-}
+export { logLevel };
+
 export enum permission {
     disabled = -1,
     default,
@@ -87,14 +83,17 @@ export class cliCommand {
 }
 
 export class logger {
-    static debug(content: string, level: logLevel = logLevel.debug) {
+    static debug(content: string, level: logLevel = logLevel.debug, module = 'CORE') {
         let text: string | undefined;
+        const moduleText = module.slice(0, 6);
+        const modulePadding = Math.max(0, 6 - moduleText.length);
+        const moduleLabel = ` ${' '.repeat(Math.floor(modulePadding / 2))}${moduleText}${' '.repeat(Math.ceil(modulePadding / 2))} `;
         switch(level) {
             case logLevel.debug:
-                text = rendering(color.fWhite,color.bBlack," DBUG ") + rendering(color.bCyan,color.fBlack,"  CORE  ") + content;
+                text = rendering(color.fWhite,color.bBlack," DBUG ") + rendering(color.bCyan,color.fBlack,moduleLabel) + content;
             break;
             case logLevel.info:
-                text = rendering(color.fBlack,color.bWhite," INFO ") + rendering(color.bCyan,color.fBlack,"  CORE  ") + content;
+                text = rendering(color.fBlack,color.bWhite," INFO ") + rendering(color.bCyan,color.fBlack,moduleLabel) + content;
             break;
             case logLevel.warn:
                 text = rendering(color.fBlack,color.bYellow," WARN ") + content;
@@ -110,11 +109,11 @@ export class logger {
             if (level >= BOTCONFIG?.core.logLevel!) {
                 console.log(text);
             }
-            if
-            (
-                !BOTCONFIG?.core.logPath // logPath defined
-                || !file.appendText(`${BOTCONFIG?.core.logPath}/${LOGNAME}`,`${text}\n`) // write log fail
-            )
+            const configuredPath = BOTCONFIG?.core.logPath;
+            const logFile = configuredPath
+                ? path.extname(configuredPath) ? configuredPath : path.join(configuredPath, LOGNAME)
+                : undefined;
+            if (!logFile || !file.appendText(logFile, `${text}\n`))
             {
                 console.log(`${rendering(color.fBlack,color.bRed," ERRO ")} Failed writing log to file.`);
             }
@@ -133,10 +132,25 @@ export class message {
     document: Document | undefined
     photo: PhotoSize[] | undefined
     command: command | undefined
-    client: nodeBot | undefined
+    client: Bot | undefined
     lang: string | undefined
+    senderChat: TgChat | undefined
 
-    constructor(id: number, from: nodeBot.User, chat: Chat, command: command | undefined) {
+    static summarize(text: string | undefined, hasPhoto = false): string {
+        const preview = (text ?? '').split(/\r?\n/, 1)[0].replace(/\s+/g, ' ').trim();
+        if (hasPhoto) return preview ? `[PIC] ${preview}` : '[PIC]';
+        return preview || '[EMPTY]';
+    }
+
+    private logOutbound(kind: 'SEND' | 'EDIT', text: string | undefined, hasPhoto = false, level: logLevel = logLevel.debug): void {
+        const label = kind === 'SEND'
+            ? rendering(color.fBlack, color.bYellow, ' SEND ')
+            : rendering(color.fBlack, color.bGreen, ' EDIT ');
+        const target = rendering(color.fGreen, color.fBlack, ` U:${this.from.name} (${this.from.id}) `);
+        logger.debug(`${label}${target}${message.summarize(text, hasPhoto)}`, level);
+    }
+
+    constructor(id: number, from: User, chat: Chat, command: command | undefined) {
         this.id = id;
         this.from = new Chat(BigInt(from.id),from.username ?? "",from.first_name,from.last_name,undefined);
         this.from.title = chat.title;
@@ -168,7 +182,8 @@ export class message {
     async reply(text: string,
                 parseMode: ParseMode = "Markdown"): Promise<message| undefined>
     {
-        let msg = await this.client!.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode, reply_to_message_id: this.id });
+        this.logOutbound('SEND', text, false, logLevel.info);
+        let msg = await this.client!.api.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode, reply_to_message_id: this.id });
         return message.parse(this.client!,msg);
     }
     // Edit this message.
@@ -179,9 +194,8 @@ export class message {
     {
         if(!(await this.canSend()))
             throw Error("Cannot edit this message.");
-        let msg = await this.client!.editMessageText(newText,{ parse_mode: parseMode,
-                                                               chat_id: this.chat.id.toString(),
-                                                               message_id: this.id }) as nodeBot.Message
+        this.logOutbound('EDIT', newText);
+        let msg = await this.client!.api.editMessageText(this.chat.id.toString(), this.id, newText, { parse_mode: parseMode }) as Message
 
         return message.parse(this.client!,msg);
     }
@@ -189,13 +203,13 @@ export class message {
     // If you aren't this message sender or no have corresponding authority,this action will make a error
     // Return: If success,return true
     async delete(): Promise<boolean> {
-        return await this.client?.deleteMessage(this.chat.id.toString(),this.id)!;
+        return await this.client?.api.deleteMessage(this.chat.id.toString(),this.id)!;
     }
     async forward(desChat: string|number): Promise<message| undefined> {
         if(!this.client)
             return undefined;
 
-        let msg = await this.client?.forwardMessage(desChat,this.chat.id.toString(),this.id);
+        let msg = await this.client?.api.forwardMessage(desChat,this.chat.id.toString(),this.id);
 
         if(!msg)
             return undefined;
@@ -206,33 +220,37 @@ export class message {
     async send(text: string,
                parseMode: ParseMode = "Markdown"): Promise<message| undefined> 
     {
-        let msg = await this.client!.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode })
+        this.logOutbound('SEND', text, false, logLevel.info);
+        let msg = await this.client!.api.sendMessage(this.chat.id.toString(), text, { parse_mode: parseMode })
 
         return message.parse(this.client!,msg);
     }
-    static async send(botClient: nodeBot,
+    static async send(botClient: Bot,
                       chatId:number,
                       text: string,
                       parseMode: ParseMode = "Markdown"): Promise<message | undefined> 
     {
-        let msg = await botClient.sendMessage(chatId, text, { parse_mode: parseMode })
+        const label = rendering(color.fBlack, color.bYellow, ' SEND ');
+        const target = rendering(color.fGreen, color.fBlack, ` C:${chatId} `);
+        logger.debug(`${label}${target}${message.summarize(text)}`, logLevel.info);
+        let msg = await botClient.api.sendMessage(chatId, text, { parse_mode: parseMode })
 
         return message.parse(botClient,msg);
     }
-    static async forward(client: nodeBot,
+    static async forward(client: Bot,
                          srcChatId: string| number,
                          desChatId: string| number,
                          msgId: number): Promise<message| undefined>{
         if (!client)
             return undefined;
 
-        let msg = await client?.forwardMessage(desChatId, srcChatId, msgId);
+        let msg = await client?.api.forwardMessage(desChatId, srcChatId, msgId);
 
         if (!msg)
             return undefined;
         return message.parse(client, msg);
     }
-    static parse(bot: nodeBot,botMsg: nodeBot.Message): message | undefined
+    static parse(bot: Bot,botMsg: Message): message | undefined
     {
         try {
             let content: string | undefined = botMsg.text == undefined ?  botMsg.caption ?? "" : botMsg.text;
@@ -254,6 +272,7 @@ export class message {
             msg.photo = botMsg.photo;
             msg.client = bot;
             msg.lang = botMsg.from?.language_code;
+            msg.senderChat = botMsg.sender_chat;
             return msg;
         }
         catch {
@@ -263,7 +282,7 @@ export class message {
     private async canSend(): Promise<boolean> {
         if(this.client != undefined) {
             return true;
-        } else if((await (this.client! as nodeBot).getMe()).id === Number(this.from.id)) {
+        } else if((await (this.client! as Bot).api.getMe()).id === Number(this.from.id)) {
             return true;
         }
         return false;
@@ -624,7 +643,7 @@ export class Chat {
         })
         return result;
     }
-    static parse(chat: nodeBot.Chat|undefined): Chat| undefined {
+    static parse(chat: TgChat|undefined): Chat| undefined {
         if(!chat)
             return undefined;
 
@@ -636,7 +655,7 @@ export class Chat {
 
 
         let result = new Chat(BigInt(id),username,fName,lName,title);
-        let m = new Map<nodeBot.ChatType,chatType>(
+        let m = new Map<TgChat["type"],chatType>(
         [
             ["private",chatType.PRIVATE],
             ["channel",chatType.CHANNEL],

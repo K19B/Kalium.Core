@@ -17,6 +17,8 @@ prisma/*
 .env
 # Prod
 dist/
+# Local debug
+tunnel.cjs
 # Editor
 /.vs
 .vscode

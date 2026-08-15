@@ -46,18 +46,27 @@ export function dbUrl() {
     let hasUser: string = "";
     let hasPassword: string = "";
     let hasPort: string = "";
+    let host: string = dbConfig?.database.host ?? '127.0.0.1';
+    let port: number | undefined = dbPort();
+
+    // Tunnel override: if KALIUM_TUNNEL_PORT is set, route through localhost tunnel
+    if (process.env.KALIUM_TUNNEL_PORT) {
+        host = '127.0.0.1';
+        port = parseInt(process.env.KALIUM_TUNNEL_PORT, 10);
+    }
+
     if (dbConfig?.database.username) {
-        hasUser = dbConfig?.database.username;
+        hasUser = encodeURIComponent(dbConfig.database.username);
         if (dbConfig?.database.password) {
-            hasPassword = ':' + dbConfig?.database.password + '@';
+            hasPassword = ':' + encodeURIComponent(dbConfig.database.password) + '@';
         } else {
             hasPassword = '@';
         }
     }
-    if (dbPort() != undefined) {
-        hasPort = ':' + dbPort()
+    if (port != undefined) {
+        hasPort = ':' + port
     }
-    return dbFullType() + '://' + hasUser + hasPassword + dbConfig?.database.host + hasPort + '/' + dbConfig?.database.db;
+    return dbFullType() + '://' + hasUser + hasPassword + host + hasPort + '/' + dbConfig?.database.db;
 }
 
 export function copyPrisma() {
