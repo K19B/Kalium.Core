@@ -2,6 +2,7 @@ import * as os from 'os';
 import { Bot, InputFile } from 'grammy';
 import type { Message } from 'grammy/types';
 import fs from 'fs';
+import net from 'net';
 import { execFileSync } from 'child_process';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { maiRankJp, maiInfoJp, getPlayerHomeJp, fetchB50ScoreTablesForUserJp, buildBest50Entries, warmJacketCache, warmDxStarCache } from './plugin/kalium-vanilla-mai/main';
@@ -249,6 +250,12 @@ async function commandHandle(msg: message): Promise<void> {
         case "kset":
             groupSetting(msg);
         break;
+        case "fax":
+            await faxHandle(msg);
+        break;
+        case "clearlimit":
+            await clearLimitHandle(msg);
+        break;
     }
 }
 function getUserInfo(msg: message): void {
@@ -380,7 +387,7 @@ function serverTime() {
 }
 function log(type: string, lvl: string, data: string) {
     // Deprecated by new logger, will remove later.
-    let logdata = serverTime() + ' ' + type + ' ' + lvl + ' ' + data + '\n';
+    let logdata = (serverTime() + ' ' + type + ' ' + lvl + ' ' + data + '\n').replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, '');
     fs.writeFile(LOGNAME, logdata, { flag: 'a+' }, err => {});
 }
 function exec(path: string, args: string[]) {
@@ -414,6 +421,110 @@ function err(from: string, stderr: string) {
            stderr + '\n' +
            '---' + '\n' +
            'Kalium ' + VER + ', Kernel ' + KERNEL;
+}
+
+const FAX_HOST = process.env.KALIUM_FAX_HOST || '192.168.10.200';
+const FAX_PORT = Number(process.env.KALIUM_FAX_PORT || 9100);
+const FAX_FEATURE = 'fax';
+
+type faxLimitResult = { allowed: true } | { allowed: false; message: string };
+
+async function consumeFaxLimit(userId: bigint, bypassLimit = false): Promise<faxLimitResult> {
+    const now = new Date();
+    return DB.$transaction(async tx => {
+        const existing = await tx.rateLimit.findUnique({ where: { userId_feature: { userId, feature: FAX_FEATURE } } });
+        const minuteExpired = !existing || now.getTime() - existing.minuteStart.getTime() >= 60_000;
+        const hourExpired = !existing || now.getTime() - existing.hourStart.getTime() >= 3_600_000;
+        const dayExpired = !existing || now.getTime() - existing.dayStart.getTime() >= 86_400_000;
+        const minuteCount = minuteExpired ? 0 : existing.minuteCount;
+        const hourCount = hourExpired ? 0 : existing.hourCount;
+        const dayCount = dayExpired ? 0 : existing.dayCount;
+
+        const limited = minuteCount >= 2 || hourCount >= 15 || dayCount >= 60;
+        if (limited && !bypassLimit) {
+            if (minuteCount >= 2) return { allowed: false, message: 'Fax rate limit: 2 requests per minute.' };
+            if (hourCount >= 15) return { allowed: false, message: 'Fax rate limit: 15 requests per hour.' };
+            return { allowed: false, message: 'Fax rate limit: 60 requests per day.' };
+        }
+
+        await tx.rateLimit.upsert({
+            where: { userId_feature: { userId, feature: FAX_FEATURE } },
+            create: {
+                userId,
+                feature: FAX_FEATURE,
+                minuteStart: now,
+                minuteCount: 1,
+                hourStart: now,
+                hourCount: 1,
+                dayStart: now,
+                dayCount: 1,
+            },
+            update: {
+                minuteStart: minuteExpired ? now : existing!.minuteStart,
+                minuteCount: minuteCount + 1,
+                hourStart: hourExpired ? now : existing!.hourStart,
+                hourCount: hourCount + 1,
+                dayStart: dayExpired ? now : existing!.dayStart,
+                dayCount: dayCount + 1,
+            },
+        });
+        return { allowed: true };
+    });
+}
+
+function sendFax(title: string, data: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const socket = net.createConnection({ host: FAX_HOST, port: FAX_PORT });
+        const timeout = setTimeout(() => socket.destroy(new Error('TCP connection timed out')), 10_000);
+        socket.once('connect', () => {
+            socket.write(`${title}\n${data}\n`, error => {
+                clearTimeout(timeout);
+                socket.end();
+                if (error) reject(error);
+                else resolve();
+            });
+        });
+        socket.once('error', error => {
+            clearTimeout(timeout);
+            reject(error);
+        });
+    });
+}
+
+async function faxHandle(msg: message): Promise<void> {
+    const data = msg.command?.content.join(' ').trim() ?? '';
+    if (!data) {
+        await msg.reply('Usage: /fax DATA');
+        return;
+    }
+
+    const limit = await consumeFaxLimit(msg.from.id, msg.from.checkPermission(permission.admin));
+    if (!limit.allowed) {
+        await msg.reply(limit.message);
+        return;
+    }
+
+    try {
+        await sendFax(`${msg.from.name}(${msg.from.id})`, data);
+        await msg.reply('Fax sent.');
+    } catch (error: any) {
+        await msg.reply(`Fax failed: ${error.message ?? error}`);
+    }
+}
+
+async function clearLimitHandle(msg: message): Promise<void> {
+    if (!msg.from.checkPermission(permission.admin)) {
+        await msg.reply('Permission Denied');
+        return;
+    }
+    const [userIdText, feature] = msg.command?.content ?? [];
+    if (feature !== 'fax' || !/^\d+$/.test(userIdText ?? '')) {
+        await msg.reply('Usage: /clearlimit <userid> fax');
+        return;
+    }
+
+    const result = await DB.rateLimit.deleteMany({ where: { userId: BigInt(userIdText), feature: FAX_FEATURE } });
+    await msg.reply(result.count ? 'Fax limit cleared.' : 'No Fax limit record found.');
 }
 
 // Mai Rank Handler

@@ -13,6 +13,8 @@ logs/
 prisma/*
 !prisma/mysql/
 !prisma/pgsql/
+!prisma/migrations/
+!prisma/migrations/**
 # env
 .env
 # Prod

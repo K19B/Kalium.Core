@@ -113,7 +113,8 @@ export class logger {
             const logFile = configuredPath
                 ? path.extname(configuredPath) ? configuredPath : path.join(configuredPath, LOGNAME)
                 : undefined;
-            if (!logFile || !file.appendText(logFile, `${text}\n`))
+            const plainText = text.replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, '');
+            if (!logFile || !file.appendText(logFile, `${plainText}\n`))
             {
                 console.log(`${rendering(color.fBlack,color.bRed," ERRO ")} Failed writing log to file.`);
             }
