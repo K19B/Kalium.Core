@@ -1,3 +1,6 @@
+# v0.17.0
+- feat: fax
+
 # v0.16.0
 - feat: mai b50 entry
 

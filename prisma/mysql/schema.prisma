@@ -81,3 +81,17 @@ model chat {
     lastSeen DateTime
     commandEnabled String
 }
+
+model rateLimit {
+    userId      BigInt
+    feature     String
+    minuteStart DateTime
+    minuteCount Int
+    hourStart   DateTime
+    hourCount   Int
+    dayStart    DateTime
+    dayCount    Int
+
+    @@id([userId, feature])
+    @@index([userId])
+}
