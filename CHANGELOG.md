@@ -1,3 +1,7 @@
+# v0.18.0
+- refactor: move command handling from main.ts to lib/command.ts
+- fix: pnpm error when using old version of pnpm
+
 # v0.17.0
 - feat: fax
 

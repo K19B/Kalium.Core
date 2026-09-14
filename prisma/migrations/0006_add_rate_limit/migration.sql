@@ -19,12 +19,24 @@ DO $$
 BEGIN
     IF to_regclass('"faxLimit"') IS NOT NULL THEN
         INSERT INTO "rateLimit" (
-            "userId", "feature", "minuteStart", "minuteCount",
-            "hourStart", "hourCount", "dayStart", "dayCount"
+            "userId",
+            "feature",
+            "minuteStart",
+            "minuteCount",
+            "hourStart",
+            "hourCount",
+            "dayStart",
+            "dayCount"
         )
         SELECT
-            "id", 'fax', "minuteStart", "minuteCount",
-            "hourStart", "hourCount", "dayStart", "dayCount"
+            "id",
+            'fax',
+            "minuteStart",
+            "minuteCount",
+            "hourStart",
+            "hourCount",
+            "dayStart",
+            "dayCount"
         FROM "faxLimit"
         ON CONFLICT ("userId", "feature") DO NOTHING;
 

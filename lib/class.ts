@@ -2,7 +2,7 @@ import { Bot } from 'grammy';
 import type { Audio, Document, ParseMode, PhotoSize, Message, User, Chat as TgChat } from 'grammy/types';
 import * as color from './color';
 import { $Enums, PrismaClient, chat } from '@prisma/client';
-import { BOTCONFIG, LOGNAME } from '../main';
+import { BOTCONFIG, LOGNAME } from './runtime';
 import { YamlSerializer, file, logLevel } from './config';
 import { musicScore } from '../plugin/kalium-vanilla-mai/class';
 import { title } from 'process';

@@ -78,23 +78,28 @@ export class config {
             if (!raw) return undefined;
 
             let cfg = new config();
+            const core = raw.core ?? {};
+            const env = raw.env ?? {};
+            const login = raw.login ?? {};
+            const database = raw.database ?? {};
 
-            // Core
-            cfg.core.confVer = raw.core?.version ?? 0;
-            cfg.core.logLevel = raw.core?.logLevel ?? logLevel.debug;
-            cfg.core.logPath = raw.core?.logPath ?? raw.env?.logfile;
+            // Support both the current nested sections and the legacy env section.
+            cfg.core.confVer = core.version ?? raw.version ?? 0;
+            cfg.core.logLevel = core.logLevel ?? env.logLevel ?? logLevel.debug;
+            cfg.core.logPath = core.logPath ?? env.logfile ?? env.logPath;
 
-            // Login (Telegram)
-            cfg.login.tokenT = raw.env?.bottoken;
-            cfg.login.proxy = raw.env?.proxy;
+            // Login (Telegram): tokenT/proxy are now under login, but old files
+            // placed them under env.
+            cfg.login.tokenT = login.tokenT ?? login.token ?? env.bottoken ?? env.botToken;
+            cfg.login.proxy = login.proxy ?? env.proxy;
 
             // Database
-            cfg.database.type = raw.database?.type ?? 'pgsql';
-            cfg.database.host = raw.database?.host ?? '127.0.0.1';
-            cfg.database.port = raw.database?.port;
-            cfg.database.username = raw.database?.username ?? 'kalium';
-            cfg.database.password = raw.database?.password;
-            cfg.database.db = raw.database?.db ?? raw.database?.database ?? 'kalium';
+            cfg.database.type = database.type ?? 'pgsql';
+            cfg.database.host = database.host ?? '127.0.0.1';
+            cfg.database.port = database.port;
+            cfg.database.username = database.username ?? 'kalium';
+            cfg.database.password = database.password;
+            cfg.database.db = database.db ?? database.database ?? database.name ?? 'kalium';
 
             return cfg;
         } catch {
